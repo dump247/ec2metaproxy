@@ -1,0 +1,15 @@
+[submodule "src/github.com/alecthomas/kingpin"]
+	path = src/github.com/alecthomas/kingpin
+	url = git@github.com:alecthomas/kingpin.git
+[submodule "src/github.com/alecthomas/units"]
+	path = src/github.com/alecthomas/units
+	url = git@github.com:alecthomas/units.git
+[submodule "src/github.com/cihub/seelog"]
+	path = src/github.com/cihub/seelog
+	url = git@github.com:cihub/seelog.git
+[submodule "src/github.com/goamz/goamz"]
+	path = src/github.com/goamz/goamz
+	url = git@github.com:goamz/goamz.git
+[submodule "src/github.com/fsouza/go-dockerclient"]
+	path = src/github.com/fsouza/go-dockerclient
+	url = git@github.com:fsouza/go-dockerclient.git

@@ -1,0 +1,5 @@
+pkg/
+bin/
+.vagrant/
+
+*.swp
