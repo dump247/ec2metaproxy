@@ -1,7 +1,7 @@
 export GOPATH=$(CURDIR)
 
-SRC_DIRS=github.com/dump247/docker-ec2-metadata/proxy
-CMD_DIRS=github.com/dump247/docker-ec2-metadata/proxy
+SRC_DIRS=github.com/dump247/docker-ec2-metadata
+CMD_DIRS=github.com/dump247/docker-ec2-metadata
 
 .PHONY: clean build test compile fmt
 
