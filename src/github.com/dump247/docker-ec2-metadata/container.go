@@ -140,6 +140,10 @@ func (t *ContainerService) syncContainers() {
 
 			roleArn, roleErr := getRoleArnFromEnv(container.Config.Env, t.defaultRoleArn)
 
+			if roleArn.Empty() && roleErr == nil {
+				roleErr = fmt.Errorf("No role defined for container %s: ip=%s image=%s", apiContainer.ID, containerIP, container.Config.Image)
+			}
+
 			containerIPMap[containerIP] = &ContainerInfo{
 				ContainerId: apiContainer.ID,
 				SessionName: generateSessionName(container),

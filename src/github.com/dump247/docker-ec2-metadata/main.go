@@ -20,8 +20,7 @@ const (
 var (
 	defaultRole = RoleArnOpt(kingpin.
 			Flag("role", "ARN of the role to use if the container does not specify a role.").
-			Short('r').
-			Required())
+			Short('r'))
 
 	serverAddr = kingpin.
 			Flag("server", "Interface and port to bind the server to.").
@@ -47,9 +46,13 @@ type MetadataCredentials struct {
 type RoleArnValue RoleArn
 
 func (t *RoleArnValue) Set(value string) error {
-	arn, err := NewRoleArn(value)
-	*(*RoleArn)(t) = arn
-	return err
+	if len(value) > 0 {
+		arn, err := NewRoleArn(value)
+		*(*RoleArn)(t) = arn
+		return err
+	}
+
+	return nil
 }
 
 func (t *RoleArnValue) String() string {
