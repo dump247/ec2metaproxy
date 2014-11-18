@@ -9,12 +9,17 @@ import (
 	"github.com/goamz/goamz/aws"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
 
 const (
 	baseUrl = "http://169.254.169.254" // no trailing slash '/'
+)
+
+var (
+	credsRegex *regexp.Regexp = regexp.MustCompile("^/.*?/meta-data/iam/security-credentials/")
 )
 
 var (
@@ -149,6 +154,46 @@ func dockerClient() *docker.Client {
 	return client
 }
 
+func handleCredentials(c *ContainerService, w http.ResponseWriter, r *http.Request) {
+	subpath := r.URL.Path[len("/latest/meta-data/iam/security-credentials/"):]
+	clientIP := remoteIP(r.RemoteAddr)
+	role, err := c.RoleForIP(clientIP)
+
+	if err != nil {
+		log.Errorf("Failed to get role for container %s: %s", clientIP, err)
+		http.Error(w, "An unexpected error getting container role", http.StatusInternalServerError)
+		return
+	}
+
+	roleName := role.Arn.RoleName()
+
+	if len(subpath) == 0 {
+		w.Write([]byte(roleName))
+	} else if !strings.HasPrefix(subpath, roleName) || (len(subpath) > len(roleName) && subpath[len(roleName)-1] != '/') {
+		// An idiosyncrasy of the standard EC2 metadata service:
+		// Subpaths of the role name are ignored. So long as the correct role name is provided,
+		// it can be followed by a slash and anything after the slash is ignored.
+		w.WriteHeader(http.StatusNotFound)
+	} else {
+		creds, err := json.Marshal(&MetadataCredentials{
+			Code:            "Success",
+			LastUpdated:     time.Now(),
+			Type:            "AWS-HMAC",
+			AccessKeyId:     role.Credentials.AccessKey,
+			SecretAccessKey: role.Credentials.SecretKey,
+			Token:           role.Credentials.Token,
+			Expiration:      role.Credentials.Expiration,
+		})
+
+		if err != nil {
+			log.Error("Error marshaling credentials: ", err)
+			w.WriteHeader(http.StatusInternalServerError)
+		} else {
+			w.Write(creds)
+		}
+	}
+}
+
 func main() {
 	kingpin.CommandLine.Help = "Docker container EC2 metadata service."
 	kingpin.Parse()
@@ -185,50 +230,17 @@ func main() {
 			return
 		}
 
+		if resp.StatusCode == http.StatusOK {
+			if credsRegex.MatchString(r.URL.Path) {
+				handleCredentials(containerService, w, r)
+				return
+			}
+		}
+
 		copyHeaders(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
 		if _, err := io.Copy(w, resp.Body); err != nil {
 			log.Warn("Error copying response content from EC2 metadata service: ", err)
-		}
-	}))
-
-	http.HandleFunc("/latest/meta-data/iam/security-credentials/", logHandler(func(w http.ResponseWriter, r *http.Request) {
-		subpath := r.URL.Path[len("/latest/meta-data/iam/security-credentials/"):]
-		clientIP := remoteIP(r.RemoteAddr)
-		role, err := containerService.RoleForIP(clientIP)
-
-		if err != nil {
-			log.Errorf("Failed to get role for container %s: %s", clientIP, err)
-			http.Error(w, "An unexpected error getting container role", http.StatusInternalServerError)
-			return
-		}
-
-		roleName := role.Arn.RoleName()
-
-		if len(subpath) == 0 {
-			w.Write([]byte(roleName))
-		} else if !strings.HasPrefix(subpath, roleName) || (len(subpath) > len(roleName) && subpath[len(roleName)-1] != '/') {
-			// An idiosyncrasy of the standard EC2 metadata service:
-			// Subpaths of the role name are ignored. So long as the correct role name is provided,
-			// it can be followed by a slash and anything after the slash is ignored.
-			w.WriteHeader(http.StatusNotFound)
-		} else {
-			creds, err := json.Marshal(&MetadataCredentials{
-				Code:            "Success",
-				LastUpdated:     time.Now(),
-				Type:            "AWS-HMAC",
-				AccessKeyId:     role.Credentials.AccessKey,
-				SecretAccessKey: role.Credentials.SecretKey,
-				Token:           role.Credentials.Token,
-				Expiration:      role.Credentials.Expiration,
-			})
-
-			if err != nil {
-				log.Error("Error marshaling credentials: ", err)
-				w.WriteHeader(http.StatusInternalServerError)
-			} else {
-				w.Write(creds)
-			}
 		}
 	}))
 
