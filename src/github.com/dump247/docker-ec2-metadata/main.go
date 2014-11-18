@@ -138,9 +138,12 @@ func (t *LogResponseWriter) WriteHeader(s int) {
 
 func logHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 		logWriter := &LogResponseWriter{w, 200}
 		handler(logWriter, r)
-		log.Infof("%s \"%s %s %s\" %d", remoteIP(r.RemoteAddr), r.Method, r.URL.Path, r.Proto, logWriter.Status)
+
+		elapsed := time.Since(start)
+		log.Infof("%s \"%s %s %s\" %d %s", remoteIP(r.RemoteAddr), r.Method, r.URL.Path, r.Proto, logWriter.Status, elapsed)
 	}
 }
 
