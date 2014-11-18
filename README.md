@@ -125,9 +125,9 @@ iptables                                        \
     -I PREROUTING                               \
     -p tcp                                      \
     -d 169.254.169.254 --dport 80               \
-    -i docker0                                  \
+    -j DNAT                                     \
     --to-destination ${PROXY_IP}:${PROXY_PORT}  \
-    -j DNAT
+    -i docker0
 ```
 
 ## Run the Service
