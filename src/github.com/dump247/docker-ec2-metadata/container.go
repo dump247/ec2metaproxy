@@ -22,12 +22,13 @@ var (
 )
 
 type ContainerInfo struct {
-	ContainerId string
-	SessionName string
-	LastUpdated time.Time
-	Error       error
-	RoleArn     RoleArn
-	Credentials *RoleCredentials
+	ContainerId      string
+	ShortContainerId string
+	SessionName      string
+	LastUpdated      time.Time
+	Error            error
+	RoleArn          RoleArn
+	Credentials      *RoleCredentials
 }
 
 func (t *ContainerInfo) RequiresRefresh() bool {
@@ -77,6 +78,7 @@ func (t *ContainerService) RoleForIP(containerIP string) (*ContainerRole, error)
 	}
 
 	if info.RequiresRefresh() {
+		log.Infof("Refreshing role for container %s: role=%s session=%s", info.ShortContainerId, info.RoleArn, info.SessionName)
 		creds, err := AssumeRole(t.auth, info.RoleArn.String(), info.SessionName)
 
 		info.LastUpdated = time.Now()
@@ -107,6 +109,7 @@ func (t *ContainerService) containerForIP(containerIP string) (*ContainerInfo, e
 }
 
 func (t *ContainerService) syncContainers() {
+	log.Info("Synchronizing state with running docker containers")
 	apiContainers, err := t.docker.ListContainers(docker.ListContainersOptions{
 		All:    false, // only running containers
 		Size:   false, // do not need size information
@@ -131,25 +134,30 @@ func (t *ContainerService) syncContainers() {
 			containerIPMap[containerIP] = t.containerIPMap[containerIP]
 		} else {
 			container, err := t.docker.InspectContainer(apiContainer.ID)
-			containerIP := container.NetworkSettings.IPAddress
 
 			if err != nil {
 				log.Error("Error inspecting container: ", apiContainer.ID, ": ", err)
 				continue
 			}
 
+			shortContainerId := apiContainer.ID[:6]
+			containerIP := container.NetworkSettings.IPAddress
+
 			roleArn, roleErr := getRoleArnFromEnv(container.Config.Env, t.defaultRoleArn)
 
 			if roleArn.Empty() && roleErr == nil {
-				roleErr = fmt.Errorf("No role defined for container %s: ip=%s image=%s", apiContainer.ID, containerIP, container.Config.Image)
+				roleErr = fmt.Errorf("No role defined for container %s: image=%s", shortContainerId, container.Config.Image)
 			}
 
+			log.Infof("Found new container: id=%s image=%s role=%s", shortContainerId, container.Config.Image, roleArn)
+
 			containerIPMap[containerIP] = &ContainerInfo{
-				ContainerId: apiContainer.ID,
-				SessionName: generateSessionName(container),
-				LastUpdated: time.Time{},
-				Error:       roleErr,
-				RoleArn:     roleArn,
+				ContainerId:      apiContainer.ID,
+				ShortContainerId: shortContainerId,
+				SessionName:      generateSessionName(container),
+				LastUpdated:      time.Time{},
+				Error:            roleErr,
+				RoleArn:          roleArn,
 			}
 
 			containerIdMap[apiContainer.ID] = containerIP

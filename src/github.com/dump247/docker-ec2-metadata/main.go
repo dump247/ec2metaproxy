@@ -163,7 +163,7 @@ func handleCredentials(c *ContainerService, w http.ResponseWriter, r *http.Reque
 	role, err := c.RoleForIP(clientIP)
 
 	if err != nil {
-		log.Errorf("Failed to get role for container %s: %s", clientIP, err)
+		log.Error(clientIP, " ", err)
 		http.Error(w, "An unexpected error getting container role", http.StatusInternalServerError)
 		return
 	}
