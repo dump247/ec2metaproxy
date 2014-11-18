@@ -7,6 +7,28 @@ for different containers to have different IAM permissions and not just use the 
 provided by the instance profile. However, this same technique could be used to override
 any other endpoints where appropriate.
 
+# Build
+
+Requires:
+
+* golang 1.2+
+* make
+
+Run `make` or `make build`. The resulting executable will be in `bin/`.
+
+Run `make clean` to clear out any build artifacts.
+
+## RPM
+
+Requires:
+
+* rpm-build
+
+1. Run `make` to create the executable
+2. Run `make rpm` to build the rpm
+
+The steps can all be performed at once with `make build rpm` or `make clean build rpm`.
+
 # Setup
 
 What is needed is an EC2 instance with assume role permissions and one or more roles defined
