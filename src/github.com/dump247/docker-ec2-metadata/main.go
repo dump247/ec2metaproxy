@@ -164,9 +164,7 @@ func main() {
 
 	containerService := NewContainerService(dockerClient(), *defaultRole, auth)
 
-	instanceServiceClient := &http.Client{
-		Timeout: 2 * time.Second,
-	}
+	instanceServiceClient := &http.Transport{}
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +177,7 @@ func main() {
 		}
 
 		copyHeaders(proxyReq.Header, r.Header)
-		resp, err := instanceServiceClient.Do(proxyReq)
+		resp, err := instanceServiceClient.RoundTrip(proxyReq)
 
 		if err != nil {
 			log.Error("Error forwarding request to EC2 metadata service: ", err)
