@@ -180,7 +180,7 @@ func handleCredentials(c *ContainerService, w http.ResponseWriter, r *http.Reque
 	} else {
 		creds, err := json.Marshal(&MetadataCredentials{
 			Code:            "Success",
-			LastUpdated:     time.Now(),
+			LastUpdated:     role.LastUpdated,
 			Type:            "AWS-HMAC",
 			AccessKeyId:     role.Credentials.AccessKey,
 			SecretAccessKey: role.Credentials.SecretKey,

@@ -44,6 +44,7 @@ func (t *ContainerInfo) RequiresRefresh() bool {
 }
 
 type ContainerRole struct {
+	LastUpdated time.Time
 	Arn         RoleArn
 	Credentials *RoleCredentials
 }
@@ -90,7 +91,7 @@ func (t *ContainerService) RoleForIP(containerIP string) (*ContainerRole, error)
 		return nil, info.Error
 	}
 
-	return &ContainerRole{info.RoleArn, info.Credentials}, nil
+	return &ContainerRole{info.LastUpdated, info.RoleArn, info.Credentials}, nil
 }
 
 func (t *ContainerService) containerForIP(containerIP string) (*ContainerInfo, error) {
