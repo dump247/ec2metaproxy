@@ -24,7 +24,7 @@ var (
 
 var (
 	defaultRole = RoleArnOpt(kingpin.
-			Flag("role", "ARN of the role to use if the container does not specify a role.").
+			Flag("default-iam-role", "ARN of the role to use if the container does not specify a role.").
 			Short('r'))
 
 	serverAddr = kingpin.

@@ -156,16 +156,12 @@ iptables                                        \
 
 The proxy service will need to run as root or as a user in the _docker_ group.
 
-```bash
-docker-metadata-proxy --role arn:aws:iam::123456789012:role/DEFAULT_ROLE_NAME
-```
-
 # Container Role
 
 If the container does not specify a role, the default role is used. A container can specify
-a specific role to use by setting the `IAM_ROLE_ARN` environment variable.
+a specific role to use by setting the `IAM_ROLE` environment variable.
 
-Example: `IAM_ROLE_ARN=arn:aws:iam::123456789012:role/CONTAINER_ROLE_NAME`
+Example: `IAM_ROLE=arn:aws:iam::123456789012:role/CONTAINER_ROLE_NAME`
 
 Note that the host machine’s instance profile must have permission to assume the given role.
 If not, the container will receive an error when requesting the credentials.

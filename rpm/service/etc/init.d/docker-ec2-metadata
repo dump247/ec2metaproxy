@@ -12,7 +12,7 @@ source /etc/rc.d/init.d/functions
 
 SERVICE_IP=${SERVICE_IP:-$(ifconfig eth0 | grep -Eo "inet addr:[0-9.]+" | grep -Eo "[0-9.]+")}
 SERVICE_PORT=${SERVICE_PORT:-18000}
-IAM_ROLE_ARN=${IAM_ROLE_ARN:-}
+DEFAULT_IAM_ROLE=${DEFAULT_IAM_ROLE:-}
 
 PID_FILE=/var/run/docker-ec2-metadata.pid
 
@@ -48,7 +48,7 @@ function start {
     sudo -u docker-ec2-metadata                             \
     /usr/lib/docker-ec2-metadata/bin/docker-ec2-metadata    \
         --server "${SERVICE_IP}:${SERVICE_PORT}"            \
-        --role "${IAM_ROLE_ARN}"                            \
+        --default-iam-role "${DEFAULT_IAM_ROLE}"                    \
         2>&1 >>/var/log/docker-ec2-metadata/docker-ec2-metadata.log &
 
     local service_pid=$!

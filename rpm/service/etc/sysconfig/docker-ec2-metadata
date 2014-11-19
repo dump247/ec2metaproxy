@@ -8,4 +8,4 @@
 # ARN for default IAM role for containers without an explicit role.
 # A default role is not required. Containers with no explicit role
 # will receive an error when attempting to access credentials.
-# IAM_ROLE_ARN=
+# DEFAULT_IAM_ROLE=

@@ -173,7 +173,7 @@ func getRoleArnFromEnv(env []string, defaultArn RoleArn) (RoleArn, error) {
 	for _, e := range env {
 		v := strings.SplitN(e, "=", 2)
 
-		if len(v) > 1 && v[0] == "IAM_ROLE_ARN" && len(v[1]) > 0 {
+		if len(v) > 1 && v[0] == "IAM_ROLE" && len(v[1]) > 0 {
 			return NewRoleArn(v[1])
 		}
 	}
