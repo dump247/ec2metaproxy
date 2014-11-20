@@ -157,8 +157,7 @@ func dockerClient() *docker.Client {
 	return client
 }
 
-func handleCredentials(c *ContainerService, w http.ResponseWriter, r *http.Request) {
-	subpath := r.URL.Path[len("/latest/meta-data/iam/security-credentials/"):]
+func handleCredentials(subpath string, c *ContainerService, w http.ResponseWriter, r *http.Request) {
 	clientIP := remoteIP(r.RemoteAddr)
 	role, err := c.RoleForIP(clientIP)
 
@@ -216,6 +215,13 @@ func main() {
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
+		match := credsRegex.FindStringIndex(r.URL.Path)
+		if match != nil {
+			subpath := r.URL.Path[match[1]:]
+			handleCredentials(subpath, containerService, w, r)
+			return
+		}
+
 		proxyReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", baseUrl, r.URL.Path), r.Body)
 
 		if err != nil {
@@ -231,13 +237,6 @@ func main() {
 			log.Error("Error forwarding request to EC2 metadata service: ", err)
 			http.Error(w, "An unexpected error occurred communicating with Amazon", http.StatusInternalServerError)
 			return
-		}
-
-		if resp.StatusCode == http.StatusOK {
-			if credsRegex.MatchString(r.URL.Path) {
-				handleCredentials(containerService, w, r)
-				return
-			}
 		}
 
 		copyHeaders(w.Header(), resp.Header)
