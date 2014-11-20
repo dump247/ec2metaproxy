@@ -45,10 +45,11 @@ function start {
         >/var/lib/docker-ec2-metadata/drop-iptables-rules
 
     # Start service
-    sudo -u docker-ec2-metadata                             \
-    /usr/lib/docker-ec2-metadata/bin/docker-ec2-metadata    \
-        --server "${SERVICE_IP}:${SERVICE_PORT}"            \
-        --default-iam-role "${DEFAULT_IAM_ROLE}"                    \
+    runuser docker-ec2-metadata                                         \
+        -s /bin/sh                                                      \
+        -c "/usr/lib/docker-ec2-metadata/bin/docker-ec2-metadata        \
+                --server \"${SERVICE_IP}:${SERVICE_PORT}\"              \
+                --default-iam-role \"${DEFAULT_IAM_ROLE}\""             \
         2>&1 >>/var/log/docker-ec2-metadata/docker-ec2-metadata.log &
 
     local service_pid=$!
