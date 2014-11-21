@@ -181,17 +181,39 @@ func getRoleArnFromEnv(env []string, defaultArn RoleArn) (RoleArn, error) {
 	return defaultArn, nil
 }
 
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
 func generateSessionName(container *docker.Container) string {
 	containerId := container.ID[:6]
 
 	remaining := maxSessionNameLen - (len(containerId) + 2) // 2 chars for separators
 	containerName := container.Name[1:]                     // Strip '/' prefix
 	imageName := container.Config.Image
-	truncate := (len(containerName) + len(imageName)) - remaining
 
-	if truncate > 0 {
-		imageName = imageName[(truncate+1)/2:]
-		containerName = containerName[truncate/2:]
+	// Split the remaining number of characters between container and image name.
+	// If one or the other is shorter than half the remaining, give the available
+	// chars to the other string.
+
+	// Trim container name
+	containerNameLen := remaining / 2
+	containerNameLen = (containerNameLen + maxInt(0, containerNameLen-len(imageName)))
+
+	if containerNameLen < len(containerName) {
+		containerName = containerName[len(containerName)-containerNameLen:]
+	}
+
+	// Trim image name
+	imageNameLen := (remaining + 1) / 2 // If odd, image name gets the extra char
+	imageNameLen = (imageNameLen + maxInt(0, imageNameLen-len(containerName)))
+
+	if imageNameLen < len(imageName) {
+		imageName = imageName[len(imageName)-imageNameLen:]
 	}
 
 	return invalidSessionNameRegexp.ReplaceAllString(fmt.Sprintf("%s-%s-%s", imageName, containerName, containerId), "_")
