@@ -13,3 +13,6 @@
 [submodule "src/github.com/fsouza/go-dockerclient"]
 	path = src/github.com/fsouza/go-dockerclient
 	url = git@github.com:fsouza/go-dockerclient.git
+[submodule "src/github.com/stretchr/testify"]
+	path = src/github.com/stretchr/testify
+	url = git@github.com:stretchr/testify.git

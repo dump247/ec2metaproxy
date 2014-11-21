@@ -9,11 +9,12 @@ import (
 )
 
 var (
-	roleArnRegex *regexp.Regexp = regexp.MustCompile(`^arn:aws:iam::(\d+):role/([^:]+)$`)
+	roleArnRegex *regexp.Regexp = regexp.MustCompile(`^arn:aws:iam::(\d+):role/([^:]+/)?([^:]+?)$`)
 )
 
 type RoleArn struct {
 	value     string
+	path      string
 	name      string
 	accountId string
 }
@@ -25,11 +26,15 @@ func NewRoleArn(value string) (RoleArn, error) {
 		return RoleArn{}, errors.New("invalid role ARN")
 	}
 
-	return RoleArn{value, result[2], result[1]}, nil
+	return RoleArn{value, "/" + result[2], result[3], result[1]}, nil
 }
 
 func (t RoleArn) RoleName() string {
 	return t.name
+}
+
+func (t RoleArn) Path() string {
+	return t.path
 }
 
 func (t RoleArn) AccountId() string {
