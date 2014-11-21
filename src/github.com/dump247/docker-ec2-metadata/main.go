@@ -142,10 +142,18 @@ func logHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w htt
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		logWriter := &LogResponseWriter{w, 200}
-		handler(logWriter, r)
 
-		elapsed := time.Since(start)
-		log.Infof("%s \"%s %s %s\" %d %s", remoteIP(r.RemoteAddr), r.Method, r.URL.Path, r.Proto, logWriter.Status, elapsed)
+		defer func() {
+			if e := recover(); e != nil {
+				log.Critical("Panic in request handler: ", e)
+				logWriter.WriteHeader(http.StatusInternalServerError)
+			}
+
+			elapsed := time.Since(start)
+			log.Infof("%s \"%s %s %s\" %d %s", remoteIP(r.RemoteAddr), r.Method, r.URL.Path, r.Proto, logWriter.Status, elapsed)
+		}()
+
+		handler(logWriter, r)
 	}
 }
 
