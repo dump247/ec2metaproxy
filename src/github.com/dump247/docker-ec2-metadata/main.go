@@ -19,7 +19,9 @@ const (
 )
 
 var (
-	credsRegex *regexp.Regexp = regexp.MustCompile("^/.*?/meta-data/iam/security-credentials/")
+	credsRegex *regexp.Regexp = regexp.MustCompile("^/(.+?)/meta-data/iam/security-credentials/(.*)$")
+
+	instanceServiceClient *http.Transport = &http.Transport{}
 )
 
 var (
@@ -157,7 +159,28 @@ func dockerClient() *docker.Client {
 	return client
 }
 
-func handleCredentials(subpath string, c *ContainerService, w http.ResponseWriter, r *http.Request) {
+func NewGET(path string) *http.Request {
+	r, err := http.NewRequest("GET", path, nil)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return r
+}
+
+func handleCredentials(apiVersion, subpath string, c *ContainerService, w http.ResponseWriter, r *http.Request) {
+	resp, err := instanceServiceClient.RoundTrip(NewGET(baseUrl + "/" + apiVersion + "/meta-data/iam/security-credentials/"))
+
+	if err != nil {
+		log.Error("Error requesting creds path for API version ", apiVersion, ": ", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	} else if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(resp.StatusCode)
+		return
+	}
+
 	clientIP := remoteIP(r.RemoteAddr)
 	role, err := c.RoleForIP(clientIP)
 
@@ -211,14 +234,11 @@ func main() {
 
 	containerService := NewContainerService(dockerClient(), *defaultRole, auth)
 
-	instanceServiceClient := &http.Transport{}
-
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
-		match := credsRegex.FindStringIndex(r.URL.Path)
+		match := credsRegex.FindStringSubmatch(r.URL.Path)
 		if match != nil {
-			subpath := r.URL.Path[match[1]:]
-			handleCredentials(subpath, containerService, w, r)
+			handleCredentials(match[1], match[2], containerService, w, r)
 			return
 		}
 
