@@ -128,41 +128,34 @@ func (t *ContainerService) syncContainers() {
 	containerIdMap := make(map[string]string)
 
 	for _, apiContainer := range apiContainers {
-		containerIP, found := t.containerIdMap[apiContainer.ID]
+		container, err := t.docker.InspectContainer(apiContainer.ID)
 
-		if found {
-			containerIdMap[apiContainer.ID] = containerIP
-			containerIPMap[containerIP] = t.containerIPMap[containerIP]
-		} else {
-			container, err := t.docker.InspectContainer(apiContainer.ID)
-
-			if err != nil {
-				log.Error("Error inspecting container: ", apiContainer.ID, ": ", err)
-				continue
-			}
-
-			shortContainerId := apiContainer.ID[:6]
-			containerIP := container.NetworkSettings.IPAddress
-
-			roleArn, roleErr := getRoleArnFromEnv(container.Config.Env, t.defaultRoleArn)
-
-			if roleArn.Empty() && roleErr == nil {
-				roleErr = fmt.Errorf("No role defined for container %s: image=%s", shortContainerId, container.Config.Image)
-			}
-
-			log.Infof("Found new container: id=%s image=%s role=%s", shortContainerId, container.Config.Image, roleArn)
-
-			containerIPMap[containerIP] = &ContainerInfo{
-				ContainerId:      apiContainer.ID,
-				ShortContainerId: shortContainerId,
-				SessionName:      generateSessionName(container),
-				LastUpdated:      time.Time{},
-				Error:            roleErr,
-				RoleArn:          roleArn,
-			}
-
-			containerIdMap[apiContainer.ID] = containerIP
+		if err != nil {
+			log.Error("Error inspecting container: ", apiContainer.ID, ": ", err)
+			continue
 		}
+
+		shortContainerId := apiContainer.ID[:6]
+		containerIP := container.NetworkSettings.IPAddress
+
+		roleArn, roleErr := getRoleArnFromEnv(container.Config.Env, t.defaultRoleArn)
+
+		if roleArn.Empty() && roleErr == nil {
+			roleErr = fmt.Errorf("No role defined for container %s: image=%s", shortContainerId, container.Config.Image)
+		}
+
+		log.Infof("Container: id=%s image=%s role=%s", shortContainerId, container.Config.Image, roleArn)
+
+		containerIPMap[containerIP] = &ContainerInfo{
+			ContainerId:      apiContainer.ID,
+			ShortContainerId: shortContainerId,
+			SessionName:      generateSessionName(container),
+			LastUpdated:      time.Time{},
+			Error:            roleErr,
+			RoleArn:          roleArn,
+		}
+
+		containerIdMap[apiContainer.ID] = containerIP
 	}
 
 	t.containerIPMap = containerIPMap
