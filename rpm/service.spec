@@ -1,6 +1,6 @@
 Summary: Docker Container EC2 Metadata Proxy
 Name: docker-ec2-metadata
-Version: 1.3
+Version: 1.4
 Release: 1
 License: MIT
 Group: System Environment/Daemons
