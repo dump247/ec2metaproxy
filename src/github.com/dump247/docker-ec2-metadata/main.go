@@ -184,7 +184,11 @@ func handleCredentials(apiVersion, subpath string, c *ContainerService, w http.R
 		log.Error("Error requesting creds path for API version ", apiVersion, ": ", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-	} else if resp.StatusCode != http.StatusOK {
+	}
+
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
 		w.WriteHeader(resp.StatusCode)
 		return
 	}
@@ -266,6 +270,8 @@ func main() {
 			http.Error(w, "An unexpected error occurred communicating with Amazon", http.StatusInternalServerError)
 			return
 		}
+
+		defer resp.Body.Close()
 
 		copyHeaders(w.Header(), resp.Header)
 		w.WriteHeader(resp.StatusCode)
