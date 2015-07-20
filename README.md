@@ -58,63 +58,66 @@ Example CloudFormation:
 * _InstanceRole_ is the role used by the EC2 instance profile and needs permission to assume _DockerContainerRole1_
 
 ```json
-"Resources": {
-  "DockerContainerRole1": {
-    "Type": "AWS::IAM::Role",
-    "Properties": {
-      "AssumeRolePolicyDocument": {
-        "Statement": [
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Resources": {
+    "DockerContainerRole1": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": [ {"Fn::GetAtt" : ["InstanceRole", "Arn"]} ]
+              },
+              "Action": [ "sts:AssumeRole" ]
+            }
+          ]
+        },
+        "Path": "/docker/",
+        "Policies": []
+      }
+    },
+
+    "InstanceRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+           {
+             "Effect": "Allow",
+             "Principal": {
+                "Service": [ "ec2.amazonaws.com" ]
+              },
+              "Action": [ "sts:AssumeRole" ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
           {
-            "Effect": "Allow",
-            "Principal": {
-              "AWS": [ {"Fn::GetAtt" : ["InstanceRole", "Arn"]} ]
-            },
-            "Action": [ "sts:AssumeRole" ]
+            "PolicyName": "AssumeRoles",
+            "PolicyDocument": {
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Resource": {"Fn::Join": ["", ["arn:aws:iam::", {"Ref": "AWS::AccountId"}, ":role/docker/*"]]},
+                  "Action": [ "sts:AssumeRole" ]
+                }
+              ]
+            }
           }
         ]
-      },
-      "Path": "/docker/",
-      "Policies": []
-    }
-  },
+      }
+    },
 
-  "InstanceRole": {
-    "Type": "AWS::IAM::Role",
-    "Properties": {
-      "AssumeRolePolicyDocument": {
-        "Statement": [
-         {
-           "Effect": "Allow",
-           "Principal": {
-              "Service": [ "ec2.amazonaws.com" ]
-            },
-            "Action": [ "sts:AssumeRole" ]
-          }
-        ]
-      },
-      "Path": "/",
-      "Policies": [
-        {
-          "PolicyName": "AssumeRoles",
-          "PolicyDocument": {
-            "Statement": [
-              {
-                "Effect": "Allow",
-                "Resource": {"Fn::Join": ["", ["arn:aws:iam::", {"Ref": "AWS::AccountId"}, ":role/docker/*"]]},
-                "Action": [ "sts:AssumeRole" ]
-              }
-            ]
-          }
-        }
-      ]
-    }
-  },
-
-  "InstanceProfile": {
-    "Type": "AWS::IAM::InstanceProfile",
-    "Properties": {
-      "Path": "/",
-      "Roles": [{"Ref": "InstanceRole"}]
+    "InstanceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [{"Ref": "InstanceRole"}]
+      }
     }
   }
 }
