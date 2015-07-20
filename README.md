@@ -14,6 +14,13 @@ Requires:
 * golang 1.2+
 * make
 
+The dependencies are managed with git submodules. After cloning, make sure to initialize the submodules:
+
+```bash
+git submodule init
+git submodule update
+```
+
 Run `make` or `make build`. The resulting executable will be in `bin/`.
 
 Run `make clean` to clear out any build artifacts.
