@@ -17,8 +17,11 @@ Requires:
 The dependencies are managed with git submodules. After cloning, make sure to initialize the submodules:
 
 ```bash
-git submodule init
-git submodule update
+# Either initialize submodules when you clone the repo
+git clone --recursive git@github.com:dump247/docker-ec2-metadata.git
+
+# Or, if you have already cloned, initialize the submodules
+git submodule update --init --recursive
 ```
 
 Run `make` or `make build`. The resulting executable will be in `bin/`.
