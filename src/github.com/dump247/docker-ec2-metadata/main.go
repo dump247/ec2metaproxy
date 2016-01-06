@@ -177,7 +177,7 @@ func NewGET(path string) *http.Request {
 	return r
 }
 
-func handleCredentials(apiVersion, subpath string, c *ContainerService, w http.ResponseWriter, r *http.Request) {
+func handleCredentials(apiVersion, subpath string, c *CredentialsProvider, w http.ResponseWriter, r *http.Request) {
 	resp, err := instanceServiceClient.RoundTrip(NewGET(baseUrl + "/" + apiVersion + "/meta-data/iam/security-credentials/"))
 
 	if err != nil {
@@ -194,7 +194,7 @@ func handleCredentials(apiVersion, subpath string, c *ContainerService, w http.R
 	}
 
 	clientIP := remoteIP(r.RemoteAddr)
-	role, err := c.RoleForIP(clientIP)
+	credentials, err := c.CredentialsForIP(clientIP)
 
 	if err != nil {
 		log.Error(clientIP, " ", err)
@@ -202,7 +202,7 @@ func handleCredentials(apiVersion, subpath string, c *ContainerService, w http.R
 		return
 	}
 
-	roleName := role.Arn.RoleName()
+	roleName := credentials.RoleArn.RoleName()
 
 	if len(subpath) == 0 {
 		w.Write([]byte(roleName))
@@ -214,12 +214,12 @@ func handleCredentials(apiVersion, subpath string, c *ContainerService, w http.R
 	} else {
 		creds, err := json.Marshal(&MetadataCredentials{
 			Code:            "Success",
-			LastUpdated:     role.LastUpdated,
+			LastUpdated:     credentials.GeneratedAt,
 			Type:            "AWS-HMAC",
-			AccessKeyId:     role.Credentials.AccessKey,
-			SecretAccessKey: role.Credentials.SecretKey,
-			Token:           role.Credentials.Token,
-			Expiration:      role.Credentials.Expiration,
+			AccessKeyId:     credentials.AccessKey,
+			SecretAccessKey: credentials.SecretKey,
+			Token:           credentials.Token,
+			Expiration:      credentials.Expiration,
 		})
 
 		if err != nil {
@@ -238,19 +238,20 @@ func main() {
 	defer log.Flush()
 	configureLogging(*verboseOpt)
 
+	// Create auth object to query local metadata service for credentials
 	auth, err := aws.GetAuth("", "", "", time.Time{})
 
 	if err != nil {
 		panic(err)
 	}
 
-	containerService := NewContainerService(dockerClient(), *defaultRole, auth)
+	credentials := NewCredentialsProvider(auth, NewDockerContainerService(dockerClient()), *defaultRole)
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
 		match := credsRegex.FindStringSubmatch(r.URL.Path)
 		if match != nil {
-			handleCredentials(match[1], match[2], containerService, w, r)
+			handleCredentials(match[1], match[2], credentials, w, r)
 			return
 		}
 

@@ -49,6 +49,10 @@ func (t RoleArn) Empty() bool {
 	return len(t.value) == 0
 }
 
+func (t RoleArn) Equals(other RoleArn) bool {
+	return t.value == other.value
+}
+
 type RoleCredentials struct {
 	AccessKey  string
 	SecretKey  string
