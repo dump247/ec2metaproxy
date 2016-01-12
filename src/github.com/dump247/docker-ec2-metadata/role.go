@@ -2,8 +2,6 @@ package main
 
 import (
 	"errors"
-	"github.com/goamz/goamz/aws"
-	"github.com/goamz/goamz/sts"
 	"regexp"
 	"time"
 )
@@ -66,26 +64,4 @@ func (t *RoleCredentials) ExpiredNow() bool {
 
 func (t *RoleCredentials) ExpiredAt(at time.Time) bool {
 	return at.After(t.Expiration)
-}
-
-func AssumeRole(auth aws.Auth, roleArn, sessionName string) (*RoleCredentials, error) {
-	stsClient := sts.New(auth, aws.USEast)
-	resp, err := stsClient.AssumeRole(&sts.AssumeRoleParams{
-		DurationSeconds: 3600, // Max is 1 hour
-		ExternalId:      "",   // Empty string means not applicable
-		Policy:          "",   // Empty string means not applicable
-		RoleArn:         roleArn,
-		RoleSessionName: sessionName,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &RoleCredentials{
-		resp.Credentials.AccessKeyId,
-		resp.Credentials.SecretAccessKey,
-		resp.Credentials.SessionToken,
-		resp.Credentials.Expiration,
-	}, nil
 }

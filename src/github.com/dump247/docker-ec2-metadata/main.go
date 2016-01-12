@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/alecthomas/kingpin"
+	"github.com/aws/aws-sdk-go/aws/session"
 	log "github.com/cihub/seelog"
-	"github.com/goamz/goamz/aws"
 	"io"
 	"net/http"
 	"regexp"
@@ -216,13 +216,6 @@ func main() {
 
 	configureLogging(&config.Log)
 
-	// Create auth object to query local metadata service for credentials
-	auth, err := aws.GetAuth("", "", "", time.Time{})
-
-	if err != nil {
-		panic(err)
-	}
-
 	defaultRole, err := NewRoleArn(config.DefaultRole)
 
 	if err != nil {
@@ -235,7 +228,8 @@ func main() {
 		panic(err)
 	}
 
-	credentials := NewCredentialsProvider(auth, platform, defaultRole)
+	awsSession := session.New()
+	credentials := NewCredentialsProvider(awsSession, platform, defaultRole)
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
@@ -271,5 +265,6 @@ func main() {
 		}
 	}))
 
+	log.Info("Listening on ", config.Bind.Addr())
 	log.Critical(http.ListenAndServe(config.Bind.Addr(), nil))
 }

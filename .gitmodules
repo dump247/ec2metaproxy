@@ -7,9 +7,6 @@
 [submodule "src/github.com/cihub/seelog"]
 	path = src/github.com/cihub/seelog
 	url = git@github.com:cihub/seelog.git
-[submodule "src/github.com/goamz/goamz"]
-	path = src/github.com/goamz/goamz
-	url = git@github.com:goamz/goamz.git
 [submodule "src/github.com/fsouza/go-dockerclient"]
 	path = src/github.com/fsouza/go-dockerclient
 	url = git@github.com:fsouza/go-dockerclient.git
@@ -19,3 +16,12 @@
 [submodule "src/gopkg.in/yaml.v2"]
 	path = src/gopkg.in/yaml.v2
 	url = git@github.com:go-yaml/yaml.git
+[submodule "src/github.com/aws/aws-sdk-go"]
+	path = src/github.com/aws/aws-sdk-go
+	url = git@github.com:aws/aws-sdk-go.git
+[submodule "src/github.com/go-ini/ini"]
+	path = src/github.com/go-ini/ini
+	url = git@github.com:go-ini/ini.git
+[submodule "src/github.com/jmespath/go-jmespath"]
+	path = src/github.com/jmespath/go-jmespath
+	url = git@github.com:jmespath/go-jmespath.git

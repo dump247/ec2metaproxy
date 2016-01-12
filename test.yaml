@@ -1,6 +1,0 @@
-a: b
-
-default-role: abc
-
-platform:
-  type: docker

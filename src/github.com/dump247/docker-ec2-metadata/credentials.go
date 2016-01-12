@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/goamz/goamz/aws"
-	"github.com/goamz/goamz/sts"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"regexp"
 	"sync"
 	"time"
@@ -52,16 +53,16 @@ func (self ContainerCredentials) IsValid(container ContainerInfo) bool {
 
 type CredentialsProvider struct {
 	container            ContainerService
-	auth                 aws.Auth
+	awsSts               *sts.STS
 	defaultIamRoleArn    RoleArn
 	containerCredentials map[string]ContainerCredentials
 	lock                 sync.Mutex
 }
 
-func NewCredentialsProvider(auth aws.Auth, container ContainerService, defaultIamRoleArn RoleArn) *CredentialsProvider {
+func NewCredentialsProvider(awsSession *session.Session, container ContainerService, defaultIamRoleArn RoleArn) *CredentialsProvider {
 	return &CredentialsProvider{
 		container:            container,
-		auth:                 auth,
+		awsSts:               sts.New(awsSession),
 		defaultIamRoleArn:    defaultIamRoleArn,
 		containerCredentials: make(map[string]ContainerCredentials),
 	}
@@ -100,13 +101,10 @@ func (self *CredentialsProvider) CredentialsForIP(containerIP string) (Credentia
 }
 
 func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, sessionName string) (Credentials, error) {
-	stsClient := sts.New(self.auth, aws.USEast)
-	resp, err := stsClient.AssumeRole(&sts.AssumeRoleParams{
-		DurationSeconds: 3600, // Max is 1 hour
-		ExternalId:      "",   // Empty string means not applicable
-		Policy:          "",   // Empty string means not applicable
-		RoleArn:         roleArn.String(),
-		RoleSessionName: sessionName,
+	resp, err := self.awsSts.AssumeRole(&sts.AssumeRoleInput{
+		DurationSeconds: aws.Int64(3600), // Max is 1 hour
+		RoleArn:         aws.String(roleArn.String()),
+		RoleSessionName: aws.String(sessionName),
 	})
 
 	if err != nil {
@@ -114,10 +112,10 @@ func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, sessionName string)
 	}
 
 	return Credentials{
-		AccessKey:   resp.Credentials.AccessKeyId,
-		SecretKey:   resp.Credentials.SecretAccessKey,
-		Token:       resp.Credentials.SessionToken,
-		Expiration:  resp.Credentials.Expiration,
+		AccessKey:   *resp.Credentials.AccessKeyId,
+		SecretKey:   *resp.Credentials.SecretAccessKey,
+		Token:       *resp.Credentials.SessionToken,
+		Expiration:  *resp.Credentials.Expiration,
 		GeneratedAt: time.Now(),
 	}, nil
 }
