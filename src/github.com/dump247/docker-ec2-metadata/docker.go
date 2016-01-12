@@ -25,6 +25,17 @@ func NewDockerContainerService(docker *docker.Client) *DockerContainerService {
 	}
 }
 
+func NewDockerContainerServiceFromConfig(config PlatformConfig) (*DockerContainerService, error) {
+	endpoint := config.GetString("endpoint", "unix:///var/run/docker.sock")
+	client, err := docker.NewClient(endpoint)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDockerContainerService(client), nil
+}
+
 func (self *DockerContainerService) ContainerForIP(containerIP string) (ContainerInfo, error) {
 	info, found := self.containerIPMap[containerIP]
 	now := time.Now()

@@ -16,3 +16,6 @@
 [submodule "src/github.com/stretchr/testify"]
 	path = src/github.com/stretchr/testify
 	url = git@github.com:stretchr/testify.git
+[submodule "src/gopkg.in/yaml.v2"]
+	path = src/gopkg.in/yaml.v2
+	url = git@github.com:go-yaml/yaml.git

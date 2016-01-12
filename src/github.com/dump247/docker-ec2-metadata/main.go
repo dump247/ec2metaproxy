@@ -5,17 +5,12 @@ import (
 	"fmt"
 	"github.com/alecthomas/kingpin"
 	log "github.com/cihub/seelog"
-	"github.com/fsouza/go-dockerclient"
 	"github.com/goamz/goamz/aws"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
-)
-
-const (
-	baseUrl = "http://169.254.169.254" // no trailing slash '/'
 )
 
 var (
@@ -25,19 +20,11 @@ var (
 )
 
 var (
-	defaultRole = RoleArnOpt(kingpin.
-			Flag("default-iam-role", "ARN of the role to use if the container does not specify a role.").
-			Short('r'))
-
-	serverAddr = kingpin.
-			Flag("server", "Interface and port to bind the server to.").
-			Default(":18000").
-			Short('s').
-			String()
-
-	verboseOpt = kingpin.
-			Flag("verbose", "Enable verbose output.").
-			Bool()
+	configFile = kingpin.
+		Flag("configfile", "Configuration file").
+		Short('c').
+		Required().
+		String()
 )
 
 type MetadataCredentials struct {
@@ -84,13 +71,7 @@ func copyHeaders(dst, src http.Header) {
 	}
 }
 
-func configureLogging(verbose bool) {
-	minLevel := "info"
-
-	if verbose {
-		minLevel = "trace"
-	}
-
+func configureLogging(config *LoggingConfig) {
 	logger, err := log.LoggerFromConfigAsString(fmt.Sprintf(`
 <seelog minlevel="%s">
     <outputs formatid="out">
@@ -101,7 +82,7 @@ func configureLogging(verbose bool) {
         <format id="out" format="%%Date %%Time [%%LEVEL] %%Msg%%n" />
     </formats>
 </seelog>
-`, minLevel))
+`, config.Level))
 
 	if err != nil {
 		panic(err)
@@ -157,16 +138,6 @@ func logHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w htt
 	}
 }
 
-func dockerClient() *docker.Client {
-	client, err := docker.NewClient("unix:///var/run/docker.sock")
-
-	if err != nil {
-		panic(err)
-	}
-
-	return client
-}
-
 func NewGET(path string) *http.Request {
 	r, err := http.NewRequest("GET", path, nil)
 
@@ -177,7 +148,7 @@ func NewGET(path string) *http.Request {
 	return r
 }
 
-func handleCredentials(apiVersion, subpath string, c *CredentialsProvider, w http.ResponseWriter, r *http.Request) {
+func handleCredentials(baseUrl, apiVersion, subpath string, c *CredentialsProvider, w http.ResponseWriter, r *http.Request) {
 	resp, err := instanceServiceClient.RoundTrip(NewGET(baseUrl + "/" + apiVersion + "/meta-data/iam/security-credentials/"))
 
 	if err != nil {
@@ -236,7 +207,14 @@ func main() {
 	kingpin.Parse()
 
 	defer log.Flush()
-	configureLogging(*verboseOpt)
+
+	config, err := LoadConfigFile(*configFile)
+
+	if err != nil {
+		panic(err)
+	}
+
+	configureLogging(&config.Log)
 
 	// Create auth object to query local metadata service for credentials
 	auth, err := aws.GetAuth("", "", "", time.Time{})
@@ -245,17 +223,29 @@ func main() {
 		panic(err)
 	}
 
-	credentials := NewCredentialsProvider(auth, NewDockerContainerService(dockerClient()), *defaultRole)
+	defaultRole, err := NewRoleArn(config.DefaultRole)
+
+	if err != nil {
+		panic(err)
+	}
+
+	platform, err := NewContainerService(config.Platform)
+
+	if err != nil {
+		panic(err)
+	}
+
+	credentials := NewCredentialsProvider(auth, platform, defaultRole)
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
 		match := credsRegex.FindStringSubmatch(r.URL.Path)
 		if match != nil {
-			handleCredentials(match[1], match[2], credentials, w, r)
+			handleCredentials(config.Metadata.Url, match[1], match[2], credentials, w, r)
 			return
 		}
 
-		proxyReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", baseUrl, r.URL.Path), r.Body)
+		proxyReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", config.Metadata.Url, r.URL.Path), r.Body)
 
 		if err != nil {
 			log.Error("Error creating proxy http request: ", err)
@@ -281,5 +271,5 @@ func main() {
 		}
 	}))
 
-	log.Critical(http.ListenAndServe(*serverAddr, nil))
+	log.Critical(http.ListenAndServe(config.Bind.Addr(), nil))
 }
