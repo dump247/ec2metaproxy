@@ -25,3 +25,6 @@
 [submodule "src/github.com/jmespath/go-jmespath"]
 	path = src/github.com/jmespath/go-jmespath
 	url = git@github.com:jmespath/go-jmespath.git
+[submodule "src/github.com/flynn/flynn"]
+	path = src/github.com/flynn/flynn
+	url = git@github.com:flynn/flynn.git
