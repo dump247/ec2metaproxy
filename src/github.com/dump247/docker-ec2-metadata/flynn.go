@@ -32,6 +32,10 @@ func NewFlynnContainerServiceFromConfig(config PlatformConfig) (*FlynnContainerS
 	return NewFlynnContainerService(flynn), nil
 }
 
+func (self *FlynnContainerService) TypeName() string {
+	return "flynn"
+}
+
 func (self *FlynnContainerService) ContainerForIP(containerIP string) (ContainerInfo, error) {
 	info, found := self.containerIPMap[containerIP]
 	now := time.Now()
@@ -51,7 +55,7 @@ func (self *FlynnContainerService) ContainerForIP(containerIP string) (Container
 }
 
 func (self *FlynnContainerService) syncContainer(containerIp string, oldInfo FlynnContainerInfo, now time.Time) (FlynnContainerInfo, bool) {
-	log.Debug("Inspecting container: ", oldInfo.Id)
+	log.Debug("Inspecting job: ", oldInfo.Id)
 	_, err := self.flynn.GetJob(oldInfo.Id)
 
 	if err != nil {
@@ -91,11 +95,11 @@ func (self *FlynnContainerService) syncContainers(now time.Time) {
 			continue
 		}
 
-		log.Infof("Container: id=%s role=%s", job.ContainerID, roleArn)
+		log.Infof("Job: id=%s role=%s", job.Job.ID, roleArn)
 
 		containerIPMap[job.InternalIP] = FlynnContainerInfo{
 			ContainerInfo: ContainerInfo{
-				Id:      job.ContainerID,
+				Id:      job.Job.ID,
 				Name:    job.Job.ID,
 				IamRole: roleArn,
 			},

@@ -87,7 +87,7 @@ func (self *CredentialsProvider) CredentialsForIP(containerIP string) (Credentia
 			roleArn = self.defaultIamRoleArn
 		}
 
-		role, err := self.AssumeRole(roleArn, generateSessionName(container.Id))
+		role, err := self.AssumeRole(roleArn, generateSessionName(self.container.TypeName(), container.Id))
 
 		if err != nil {
 			return Credentials{}, err
@@ -120,7 +120,7 @@ func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, sessionName string)
 	}, nil
 }
 
-func generateSessionName(containerId string) string {
-	sessionName := fmt.Sprintf("metadata-proxy-%s", containerId)
+func generateSessionName(platform, containerId string) string {
+	sessionName := fmt.Sprintf("%s-%s", platform, containerId)
 	return invalidSessionNameRegexp.ReplaceAllString(sessionName, "_")[0:maxSessionNameLen]
 }

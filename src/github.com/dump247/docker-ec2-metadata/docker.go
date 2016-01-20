@@ -36,6 +36,10 @@ func NewDockerContainerServiceFromConfig(config PlatformConfig) (*DockerContaine
 	return NewDockerContainerService(client), nil
 }
 
+func (self *DockerContainerService) TypeName() string {
+	return "docker"
+}
+
 func (self *DockerContainerService) ContainerForIP(containerIP string) (ContainerInfo, error) {
 	info, found := self.containerIPMap[containerIP]
 	now := time.Now()

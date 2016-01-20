@@ -12,6 +12,7 @@ type ContainerInfo struct {
 
 type ContainerService interface {
 	ContainerForIP(containerIP string) (ContainerInfo, error)
+	TypeName() string
 }
 
 func NewContainerService(config PlatformConfig) (ContainerService, error) {
@@ -19,6 +20,8 @@ func NewContainerService(config PlatformConfig) (ContainerService, error) {
 
 	if platformType == "docker" {
 		return NewDockerContainerServiceFromConfig(config)
+	} else if platformType == "flynn" {
+		return NewFlynnContainerServiceFromConfig(config)
 	} else {
 		return nil, fmt.Errorf("Unknown platform type: %s", platformType)
 	}
