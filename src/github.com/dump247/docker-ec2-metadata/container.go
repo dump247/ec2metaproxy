@@ -5,9 +5,10 @@ import (
 )
 
 type ContainerInfo struct {
-	Id      string
-	Name    string
-	IamRole RoleArn
+	Id        string
+	Name      string
+	IamRole   RoleArn
+	IamPolicy string
 }
 
 type ContainerService interface {

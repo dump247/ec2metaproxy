@@ -3,14 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/alecthomas/kingpin"
-	"github.com/aws/aws-sdk-go/aws/session"
-	log "github.com/cihub/seelog"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/alecthomas/kingpin"
+	"github.com/aws/aws-sdk-go/aws/session"
+	log "github.com/cihub/seelog"
 )
 
 var (
@@ -229,7 +230,7 @@ func main() {
 	}
 
 	awsSession := session.New()
-	credentials := NewCredentialsProvider(awsSession, platform, defaultRole)
+	credentials := NewCredentialsProvider(awsSession, platform, defaultRole, config.DefaultPolicyJson())
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {

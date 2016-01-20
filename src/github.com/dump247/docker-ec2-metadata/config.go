@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
+
+	"gopkg.in/yaml.v2"
 )
 
 type BindConfig struct {
@@ -57,11 +59,21 @@ func (self PlatformConfig) GetString(key string, defaultValue string) string {
 }
 
 type ProxyConfig struct {
-	Bind        BindConfig     `yaml:"bind"`
-	Metadata    MetadataConfig `yaml:"metadata"`
-	Log         LoggingConfig  `yaml:"log"`
-	DefaultRole string         `yaml:"default-role"`
-	Platform    PlatformConfig `yaml:"platform"`
+	Bind          BindConfig             `yaml:"bind"`
+	Metadata      MetadataConfig         `yaml:"metadata"`
+	Log           LoggingConfig          `yaml:"log"`
+	DefaultRole   string                 `yaml:"default-role"`
+	DefaultPolicy map[string]interface{} `yaml:"default-policy"`
+	Platform      PlatformConfig         `yaml:"platform"`
+}
+
+func (self *ProxyConfig) DefaultPolicyJson() string {
+	if len(self.DefaultPolicy) == 0 {
+		return ""
+	}
+
+	content, _ := json.Marshal(self.DefaultPolicy)
+	return string(content)
 }
 
 func (self *ProxyConfig) Init() error {

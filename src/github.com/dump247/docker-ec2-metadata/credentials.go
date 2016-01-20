@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sts"
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sts"
 )
 
 const (
@@ -55,15 +56,17 @@ type CredentialsProvider struct {
 	container            ContainerService
 	awsSts               *sts.STS
 	defaultIamRoleArn    RoleArn
+	defaultIamPolicy     string
 	containerCredentials map[string]ContainerCredentials
 	lock                 sync.Mutex
 }
 
-func NewCredentialsProvider(awsSession *session.Session, container ContainerService, defaultIamRoleArn RoleArn) *CredentialsProvider {
+func NewCredentialsProvider(awsSession *session.Session, container ContainerService, defaultIamRoleArn RoleArn, defaultIamPolicy string) *CredentialsProvider {
 	return &CredentialsProvider{
 		container:            container,
 		awsSts:               sts.New(awsSession),
 		defaultIamRoleArn:    defaultIamRoleArn,
+		defaultIamPolicy:     defaultIamPolicy,
 		containerCredentials: make(map[string]ContainerCredentials),
 	}
 }
@@ -82,12 +85,17 @@ func (self *CredentialsProvider) CredentialsForIP(containerIP string) (Credentia
 
 	if !found || !oldCredentials.IsValid(container) {
 		roleArn := container.IamRole
+		iamPolicy := container.IamPolicy
 
 		if roleArn.Empty() {
 			roleArn = self.defaultIamRoleArn
+
+			if len(iamPolicy) == 0 {
+				iamPolicy = self.defaultIamPolicy
+			}
 		}
 
-		role, err := self.AssumeRole(roleArn, generateSessionName(self.container.TypeName(), container.Id))
+		role, err := self.AssumeRole(roleArn, iamPolicy, generateSessionName(self.container.TypeName(), container.Id))
 
 		if err != nil {
 			return Credentials{}, err
@@ -100,9 +108,16 @@ func (self *CredentialsProvider) CredentialsForIP(containerIP string) (Credentia
 	return oldCredentials.Credentials, nil
 }
 
-func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, sessionName string) (Credentials, error) {
+func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, iamPolicy, sessionName string) (Credentials, error) {
+	var policy *string = nil
+
+	if len(iamPolicy) > 0 {
+		policy = aws.String(iamPolicy)
+	}
+
 	resp, err := self.awsSts.AssumeRole(&sts.AssumeRoleInput{
 		DurationSeconds: aws.Int64(3600), // Max is 1 hour
+		Policy:          policy,
 		RoleArn:         aws.String(roleArn.String()),
 		RoleSessionName: aws.String(sessionName),
 	})

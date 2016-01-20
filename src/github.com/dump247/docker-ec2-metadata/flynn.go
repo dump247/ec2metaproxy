@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+
+	"strings"
+	"time"
+
 	log "github.com/cihub/seelog"
 	"github.com/flynn/flynn/host/types"
 	"github.com/flynn/flynn/pkg/cluster"
-	//"strings"
-	"time"
 )
 
 type FlynnContainerInfo struct {
@@ -99,9 +101,10 @@ func (self *FlynnContainerService) syncContainers(now time.Time) {
 
 		containerIPMap[job.InternalIP] = FlynnContainerInfo{
 			ContainerInfo: ContainerInfo{
-				Id:      job.Job.ID,
-				Name:    job.Job.ID,
-				IamRole: roleArn,
+				Id:        job.Job.ID,
+				Name:      job.Job.ID,
+				IamRole:   roleArn,
+				IamPolicy: strings.TrimSpace(job.Job.Metadata["IAM_POLICY"]),
 			},
 			RefreshTime: refreshAt,
 		}

@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	log "github.com/cihub/seelog"
-	"github.com/fsouza/go-dockerclient"
 	"strings"
 	"time"
+
+	log "github.com/cihub/seelog"
+	"github.com/fsouza/go-dockerclient"
 )
 
 type DockerContainerInfo struct {
@@ -111,7 +112,7 @@ func (self *DockerContainerService) syncContainers(now time.Time) {
 		}
 
 		containerIP := container.NetworkSettings.IPAddress
-		roleArn, err := getRoleArnFromEnv(container.Config.Env)
+		roleArn, iamPolicy, err := getRoleArnFromEnv(container.Config.Env)
 
 		if err != nil {
 			log.Error("Error getting role from container: ", apiContainer.ID, ": ", err)
@@ -122,9 +123,10 @@ func (self *DockerContainerService) syncContainers(now time.Time) {
 
 		containerIPMap[containerIP] = DockerContainerInfo{
 			ContainerInfo: ContainerInfo{
-				Id:      container.ID,
-				Name:    container.Name,
-				IamRole: roleArn,
+				Id:        container.ID,
+				Name:      container.Name,
+				IamRole:   roleArn,
+				IamPolicy: iamPolicy,
 			},
 			RefreshTime: refreshAt,
 		}
@@ -137,7 +139,7 @@ func refreshTime(now time.Time) time.Time {
 	return now.Add(1 * time.Second)
 }
 
-func getRoleArnFromEnv(env []string) (RoleArn, error) {
+func getRoleArnFromEnv(env []string) (role RoleArn, policy string, err error) {
 	for _, e := range env {
 		v := strings.SplitN(e, "=", 2)
 
@@ -145,10 +147,16 @@ func getRoleArnFromEnv(env []string) (RoleArn, error) {
 			roleArn := strings.TrimSpace(v[1])
 
 			if len(roleArn) > 0 {
-				return NewRoleArn(roleArn)
+				role, err = NewRoleArn(roleArn)
+
+				if err != nil {
+					return
+				}
 			}
+		} else if v[0] == "IAM_POLICY" && len(v) > 1 {
+			policy = strings.TrimSpace(v[1])
 		}
 	}
 
-	return RoleArn{}, nil
+	return
 }
