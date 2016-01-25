@@ -21,17 +21,13 @@ type FlynnContainerService struct {
 	flynn          *cluster.Host
 }
 
-func NewFlynnContainerService(flynn *cluster.Host) *FlynnContainerService {
+func NewFlynnContainerService(endpoint string) (*FlynnContainerService, error) {
+	flynn := cluster.NewHost("local", endpoint, nil, nil)
+
 	return &FlynnContainerService{
 		containerIPMap: make(map[string]FlynnContainerInfo),
 		flynn:          flynn,
-	}
-}
-
-func NewFlynnContainerServiceFromConfig(config PlatformConfig) (*FlynnContainerService, error) {
-	endpoint := config.GetString("endpoint", "http://127.0.0.1:1113")
-	flynn := cluster.NewHost("local", endpoint, nil, nil)
-	return NewFlynnContainerService(flynn), nil
+	}, nil
 }
 
 func (self *FlynnContainerService) TypeName() string {

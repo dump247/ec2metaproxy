@@ -19,22 +19,17 @@ type DockerContainerService struct {
 	docker         *docker.Client
 }
 
-func NewDockerContainerService(docker *docker.Client) *DockerContainerService {
-	return &DockerContainerService{
-		containerIPMap: make(map[string]DockerContainerInfo),
-		docker:         docker,
-	}
-}
-
-func NewDockerContainerServiceFromConfig(config PlatformConfig) (*DockerContainerService, error) {
-	endpoint := config.GetString("endpoint", "unix:///var/run/docker.sock")
+func NewDockerContainerService(endpoint string) (*DockerContainerService, error) {
 	client, err := docker.NewClient(endpoint)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return NewDockerContainerService(client), nil
+	return &DockerContainerService{
+		containerIPMap: make(map[string]DockerContainerInfo),
+		docker:         client,
+	}, nil
 }
 
 func (self *DockerContainerService) TypeName() string {

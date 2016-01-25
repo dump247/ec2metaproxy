@@ -21,11 +21,43 @@ var (
 )
 
 var (
-	configFile = kingpin.
-		Flag("configfile", "Configuration file").
-		Short('c').
-		Required().
-		String()
+	defaultIamRole = RoleArnOpt(kingpin.
+			Flag("default-iam-role", "ARN of the role to use if the container does not specify a role.").
+			Short('r'))
+
+	defaultIamPolicy = kingpin.
+				Flag("default-iam-policy", "Default IAM policy to apply if the container does not provide a custom role/policy.").
+				Default("").
+				String()
+
+	metadataUrl = kingpin.
+			Flag("metadata-url", "URL of the real EC2 metadata service.").
+			Default("http:///169.254.169.254").
+			String()
+
+	serverAddr = kingpin.
+			Flag("server", "Interface and port to bind the server to.").
+			Default(":18000").
+			Short('s').
+			String()
+
+	verbose = kingpin.
+		Flag("verbose", "Enable verbose output.").
+		Bool()
+
+	dockerCommand = kingpin.Command("docker", "Run proxy for docker container manager.")
+
+	dockerEndpoint = dockerCommand.
+			Flag("docker-endpoint", "Endpoint to communicate with the docker daemon.").
+			Default("unix:///var/run/docker.sock").
+			String()
+
+	flynnCommand = kingpin.Command("flynn", "Run proxy for flynn container manager.")
+
+	flynnEndpoint = flynnCommand.
+			Flag("flynn-endpoint", "Endpoint to communicate with the flynn host.").
+			Default("http://127.0.0.1:1113").
+			String()
 )
 
 type MetadataCredentials struct {
@@ -36,28 +68,6 @@ type MetadataCredentials struct {
 	SecretAccessKey string
 	Token           string
 	Expiration      time.Time
-}
-
-type RoleArnValue RoleArn
-
-func (t *RoleArnValue) Set(value string) error {
-	if len(value) > 0 {
-		arn, err := NewRoleArn(value)
-		*(*RoleArn)(t) = arn
-		return err
-	}
-
-	return nil
-}
-
-func (t *RoleArnValue) String() string {
-	return ""
-}
-
-func RoleArnOpt(s kingpin.Settings) (target *RoleArn) {
-	target = new(RoleArn)
-	s.SetValue((*RoleArnValue)(target))
-	return
 }
 
 func copyHeaders(dst, src http.Header) {
@@ -72,18 +82,23 @@ func copyHeaders(dst, src http.Header) {
 	}
 }
 
-func configureLogging(config *LoggingConfig) {
+func configureLogging(verbose bool) {
+	minLevel := "info"
+
+	if verbose {
+		minLevel = "trace"
+	}
+
 	logger, err := log.LoggerFromConfigAsString(fmt.Sprintf(`
 <seelog minlevel="%s">
     <outputs formatid="out">
         <console />
     </outputs>
-
     <formats>
         <format id="out" format="%%Date %%Time [%%LEVEL] %%Msg%%n" />
     </formats>
 </seelog>
-`, config.Level))
+`, minLevel))
 
 	if err != nil {
 		panic(err)
@@ -203,44 +218,42 @@ func handleCredentials(baseUrl, apiVersion, subpath string, c *CredentialsProvid
 	}
 }
 
+func NewContainerService(platform string) (ContainerService, error) {
+	switch platform {
+	case "docker":
+		return NewDockerContainerService(*dockerEndpoint)
+	case "flynn":
+		return NewFlynnContainerService(*flynnEndpoint)
+	default:
+		return nil, fmt.Errorf("Unknown container platform: %s", platform)
+	}
+}
+
 func main() {
 	kingpin.CommandLine.Help = "Docker container EC2 metadata service."
-	kingpin.Parse()
+	command := kingpin.Parse()
 
 	defer log.Flush()
+	configureLogging(*verbose)
 
-	config, err := LoadConfigFile(*configFile)
-
-	if err != nil {
-		panic(err)
-	}
-
-	configureLogging(&config.Log)
-
-	defaultRole, err := NewRoleArn(config.DefaultRole)
-
-	if err != nil {
-		panic(err)
-	}
-
-	platform, err := NewContainerService(config.Platform)
+	platform, err := NewContainerService(command)
 
 	if err != nil {
 		panic(err)
 	}
 
 	awsSession := session.New()
-	credentials := NewCredentialsProvider(awsSession, platform, defaultRole, config.DefaultPolicyJson())
+	credentials := NewCredentialsProvider(awsSession, platform, *defaultIamRole, *defaultIamPolicy)
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
 		match := credsRegex.FindStringSubmatch(r.URL.Path)
 		if match != nil {
-			handleCredentials(config.Metadata.Url, match[1], match[2], credentials, w, r)
+			handleCredentials(*metadataUrl, match[1], match[2], credentials, w, r)
 			return
 		}
 
-		proxyReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", config.Metadata.Url, r.URL.Path), r.Body)
+		proxyReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", *metadataUrl, r.URL.Path), r.Body)
 
 		if err != nil {
 			log.Error("Error creating proxy http request: ", err)
@@ -266,6 +279,6 @@ func main() {
 		}
 	}))
 
-	log.Info("Listening on ", config.Bind.Addr())
-	log.Critical(http.ListenAndServe(config.Bind.Addr(), nil))
+	log.Info("Listening on ", *serverAddr)
+	log.Critical(http.ListenAndServe(*serverAddr, nil))
 }
