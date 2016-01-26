@@ -32,7 +32,7 @@ var (
 
 	metadataUrl = kingpin.
 			Flag("metadata-url", "URL of the real EC2 metadata service.").
-			Default("http:///169.254.169.254").
+			Default("http://169.254.169.254").
 			String()
 
 	serverAddr = kingpin.

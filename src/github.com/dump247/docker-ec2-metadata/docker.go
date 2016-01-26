@@ -56,9 +56,9 @@ func (self *DockerContainerService) ContainerForIP(containerIP string) (Containe
 
 func (self *DockerContainerService) syncContainer(containerIp string, oldInfo DockerContainerInfo, now time.Time) (DockerContainerInfo, bool) {
 	log.Debug("Inspecting container: ", oldInfo.Id)
-	_, err := self.docker.InspectContainer(oldInfo.Id)
+	container, err := self.docker.InspectContainer(oldInfo.Id)
 
-	if err != nil {
+	if err != nil || !container.State.Running {
 		if _, ok := err.(*docker.NoSuchContainer); ok {
 			log.Debug("Container not found, refreshing container info: ", oldInfo.Id)
 		} else {

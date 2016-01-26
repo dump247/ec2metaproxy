@@ -1,9 +1,0 @@
-/var/log/docker-ec2-metadata/*.log {
-    daily
-    rotate 30
-    copytruncate
-    delaycompress
-    compress
-    notifempty
-    missingok
-}
