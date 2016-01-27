@@ -10,13 +10,16 @@ CMD_DIRS=${PROJECT_PACKAGE}
 
 .PHONY: clean build test compile fmt docker-image
 
-build: fmt test compile
+build: fmt lint test compile
 
 compile:
 	go install ${CMD_DIRS}
 
 test:
 	go test ${SRC_DIRS}
+
+lint:
+	golint ${SRC_DIRS}
 
 fmt:
 	go fmt ${SRC_DIRS}
