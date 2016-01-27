@@ -1,13 +1,13 @@
 package main
 
-type ContainerInfo struct {
-	Id        string
+type containerInfo struct {
+	ID        string
 	Name      string
-	IamRole   RoleArn
+	IamRole   roleArn
 	IamPolicy string
 }
 
-type ContainerService interface {
-	ContainerForIP(containerIP string) (ContainerInfo, error)
+type containerService interface {
+	ContainerForIP(containerIP string) (containerInfo, error)
 	TypeName() string
 }

@@ -17,105 +17,105 @@ const (
 
 var (
 	// matches char that is not valid in a STS role session name
-	invalidSessionNameRegexp *regexp.Regexp = regexp.MustCompile(`[^\w+=,.@-]`)
+	invalidSessionNameRegexp = regexp.MustCompile(`[^\w+=,.@-]`)
 )
 
-type Credentials struct {
+type credentials struct {
 	AccessKey   string
 	Expiration  time.Time
 	GeneratedAt time.Time
-	RoleArn     RoleArn
+	RoleArn     roleArn
 	SecretKey   string
 	Token       string
 }
 
-func (self Credentials) ExpiredNow() bool {
-	return self.ExpiredAt(time.Now())
+func (c credentials) ExpiredNow() bool {
+	return c.ExpiredAt(time.Now())
 }
 
-func (self Credentials) ExpiredAt(at time.Time) bool {
-	return at.After(self.Expiration)
+func (c credentials) ExpiredAt(at time.Time) bool {
+	return at.After(c.Expiration)
 }
 
-func (self Credentials) ExpiresIn(d time.Duration) bool {
-	return self.ExpiredAt(time.Now().Add(-d))
+func (c credentials) ExpiresIn(d time.Duration) bool {
+	return c.ExpiredAt(time.Now().Add(-d))
 }
 
-type ContainerCredentials struct {
-	ContainerInfo
-	Credentials
+type containerCredentials struct {
+	containerInfo
+	credentials
 }
 
-func (self ContainerCredentials) IsValid(container ContainerInfo) bool {
-	return self.ContainerInfo.IamRole.Equals(container.IamRole) &&
-		self.ContainerInfo.Id == container.Id &&
-		!self.Credentials.ExpiresIn(5*time.Minute)
+func (c containerCredentials) IsValid(container containerInfo) bool {
+	return c.containerInfo.IamRole.Equals(container.IamRole) &&
+		c.containerInfo.ID == container.ID &&
+		!c.credentials.ExpiresIn(5*time.Minute)
 }
 
-type CredentialsProvider struct {
-	container            ContainerService
+type credentialsProvider struct {
+	container            containerService
 	awsSts               *sts.STS
-	defaultIamRoleArn    RoleArn
+	defaultIamRoleArn    roleArn
 	defaultIamPolicy     string
-	containerCredentials map[string]ContainerCredentials
+	containerCredentials map[string]containerCredentials
 	lock                 sync.Mutex
 }
 
-func NewCredentialsProvider(awsSession *session.Session, container ContainerService, defaultIamRoleArn RoleArn, defaultIamPolicy string) *CredentialsProvider {
-	return &CredentialsProvider{
+func newCredentialsProvider(awsSession *session.Session, container containerService, defaultIamRoleArn roleArn, defaultIamPolicy string) *credentialsProvider {
+	return &credentialsProvider{
 		container:            container,
 		awsSts:               sts.New(awsSession),
 		defaultIamRoleArn:    defaultIamRoleArn,
 		defaultIamPolicy:     defaultIamPolicy,
-		containerCredentials: make(map[string]ContainerCredentials),
+		containerCredentials: make(map[string]containerCredentials),
 	}
 }
 
-func (self *CredentialsProvider) CredentialsForIP(containerIP string) (Credentials, error) {
-	self.lock.Lock()
-	defer self.lock.Unlock()
+func (c *credentialsProvider) CredentialsForIP(containerIP string) (credentials, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-	container, err := self.container.ContainerForIP(containerIP)
+	container, err := c.container.ContainerForIP(containerIP)
 
 	if err != nil {
-		return Credentials{}, err
+		return credentials{}, err
 	}
 
-	oldCredentials, found := self.containerCredentials[containerIP]
+	oldCredentials, found := c.containerCredentials[containerIP]
 
 	if !found || !oldCredentials.IsValid(container) {
 		roleArn := container.IamRole
 		iamPolicy := container.IamPolicy
 
 		if roleArn.Empty() {
-			roleArn = self.defaultIamRoleArn
+			roleArn = c.defaultIamRoleArn
 
 			if len(iamPolicy) == 0 {
-				iamPolicy = self.defaultIamPolicy
+				iamPolicy = c.defaultIamPolicy
 			}
 		}
 
-		role, err := self.AssumeRole(roleArn, iamPolicy, generateSessionName(self.container.TypeName(), container.Id))
+		role, err := c.AssumeRole(roleArn, iamPolicy, generateSessionName(c.container.TypeName(), container.ID))
 
 		if err != nil {
-			return Credentials{}, err
+			return credentials{}, err
 		}
 
-		oldCredentials = ContainerCredentials{container, role}
-		self.containerCredentials[containerIP] = oldCredentials
+		oldCredentials = containerCredentials{container, role}
+		c.containerCredentials[containerIP] = oldCredentials
 	}
 
-	return oldCredentials.Credentials, nil
+	return oldCredentials.credentials, nil
 }
 
-func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, iamPolicy, sessionName string) (Credentials, error) {
-	var policy *string = nil
+func (c *credentialsProvider) AssumeRole(roleArn roleArn, iamPolicy, sessionName string) (credentials, error) {
+	var policy *string
 
 	if len(iamPolicy) > 0 {
 		policy = aws.String(iamPolicy)
 	}
 
-	resp, err := self.awsSts.AssumeRole(&sts.AssumeRoleInput{
+	resp, err := c.awsSts.AssumeRole(&sts.AssumeRoleInput{
 		DurationSeconds: aws.Int64(3600), // Max is 1 hour
 		Policy:          policy,
 		RoleArn:         aws.String(roleArn.String()),
@@ -123,10 +123,10 @@ func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, iamPolicy, sessionN
 	})
 
 	if err != nil {
-		return Credentials{}, err
+		return credentials{}, err
 	}
 
-	return Credentials{
+	return credentials{
 		AccessKey:   *resp.Credentials.AccessKeyId,
 		SecretKey:   *resp.Credentials.SecretAccessKey,
 		Token:       *resp.Credentials.SessionToken,
@@ -135,7 +135,7 @@ func (self *CredentialsProvider) AssumeRole(roleArn RoleArn, iamPolicy, sessionN
 	}, nil
 }
 
-func generateSessionName(platform, containerId string) string {
-	sessionName := fmt.Sprintf("%s-%s", platform, containerId)
+func generateSessionName(platform, containerID string) string {
+	sessionName := fmt.Sprintf("%s-%s", platform, containerID)
 	return invalidSessionNameRegexp.ReplaceAllString(sessionName, "_")[0:maxSessionNameLen]
 }

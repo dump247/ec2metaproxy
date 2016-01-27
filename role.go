@@ -7,61 +7,61 @@ import (
 )
 
 var (
-	roleArnRegex *regexp.Regexp = regexp.MustCompile(`^arn:aws:iam::(\d+):role/([^:]+/)?([^:]+?)$`)
+	roleArnRegex = regexp.MustCompile(`^arn:aws:iam::(\d+):role/([^:]+/)?([^:]+?)$`)
 )
 
-type RoleArn struct {
+type roleArn struct {
 	value     string
 	path      string
 	name      string
-	accountId string
+	accountID string
 }
 
-func NewRoleArn(value string) (RoleArn, error) {
+func newRoleArn(value string) (roleArn, error) {
 	result := roleArnRegex.FindStringSubmatch(value)
 
 	if result == nil {
-		return RoleArn{}, errors.New("invalid role ARN")
+		return roleArn{}, errors.New("invalid role ARN")
 	}
 
-	return RoleArn{value, "/" + result[2], result[3], result[1]}, nil
+	return roleArn{value, "/" + result[2], result[3], result[1]}, nil
 }
 
-func (t RoleArn) RoleName() string {
-	return t.name
+func (r roleArn) RoleName() string {
+	return r.name
 }
 
-func (t RoleArn) Path() string {
-	return t.path
+func (r roleArn) Path() string {
+	return r.path
 }
 
-func (t RoleArn) AccountId() string {
-	return t.accountId
+func (r roleArn) AccountID() string {
+	return r.accountID
 }
 
-func (t RoleArn) String() string {
-	return t.value
+func (r roleArn) String() string {
+	return r.value
 }
 
-func (t RoleArn) Empty() bool {
-	return len(t.value) == 0
+func (r roleArn) Empty() bool {
+	return len(r.value) == 0
 }
 
-func (t RoleArn) Equals(other RoleArn) bool {
-	return t.value == other.value
+func (r roleArn) Equals(other roleArn) bool {
+	return r.value == other.value
 }
 
-type RoleCredentials struct {
+type roleCredentials struct {
 	AccessKey  string
 	SecretKey  string
 	Token      string
 	Expiration time.Time
 }
 
-func (t *RoleCredentials) ExpiredNow() bool {
+func (t *roleCredentials) ExpiredNow() bool {
 	return t.ExpiredAt(time.Now())
 }
 
-func (t *RoleCredentials) ExpiredAt(at time.Time) bool {
+func (t *roleCredentials) ExpiredAt(at time.Time) bool {
 	return at.After(t.Expiration)
 }

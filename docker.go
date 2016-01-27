@@ -6,78 +6,78 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/dump247/ec2metaproxy/vendor/github.com/fsouza/go-dockerclient"
 )
 
-type DockerContainerInfo struct {
-	ContainerInfo
+type dockerContainerInfo struct {
+	containerInfo
 	RefreshTime time.Time
 }
 
-type DockerContainerService struct {
-	containerIPMap map[string]DockerContainerInfo
+type dockerContainerService struct {
+	containerIPMap map[string]dockerContainerInfo
 	docker         *docker.Client
 }
 
-func NewDockerContainerService(endpoint string) (*DockerContainerService, error) {
+func newDockerContainerService(endpoint string) (*dockerContainerService, error) {
 	client, err := docker.NewClient(endpoint)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &DockerContainerService{
-		containerIPMap: make(map[string]DockerContainerInfo),
+	return &dockerContainerService{
+		containerIPMap: make(map[string]dockerContainerInfo),
 		docker:         client,
 	}, nil
 }
 
-func (self *DockerContainerService) TypeName() string {
+func (d *dockerContainerService) TypeName() string {
 	return "docker"
 }
 
-func (self *DockerContainerService) ContainerForIP(containerIP string) (ContainerInfo, error) {
-	info, found := self.containerIPMap[containerIP]
+func (d *dockerContainerService) ContainerForIP(containerIP string) (containerInfo, error) {
+	info, found := d.containerIPMap[containerIP]
 	now := time.Now()
 
 	if !found {
-		self.syncContainers(now)
-		info, found = self.containerIPMap[containerIP]
+		d.syncContainers(now)
+		info, found = d.containerIPMap[containerIP]
 	} else if now.After(info.RefreshTime) {
-		info, found = self.syncContainer(containerIP, info, now)
+		info, found = d.syncContainer(containerIP, info, now)
 	}
 
 	if !found {
-		return ContainerInfo{}, fmt.Errorf("No container found for IP %s", containerIP)
+		return containerInfo{}, fmt.Errorf("No container found for IP %s", containerIP)
 	}
 
-	return info.ContainerInfo, nil
+	return info.containerInfo, nil
 }
 
-func (self *DockerContainerService) syncContainer(containerIp string, oldInfo DockerContainerInfo, now time.Time) (DockerContainerInfo, bool) {
-	log.Debug("Inspecting container: ", oldInfo.Id)
-	container, err := self.docker.InspectContainer(oldInfo.Id)
+func (d *dockerContainerService) syncContainer(containerIP string, oldInfo dockerContainerInfo, now time.Time) (dockerContainerInfo, bool) {
+	log.Debug("Inspecting container: ", oldInfo.ID)
+	container, err := d.docker.InspectContainer(oldInfo.ID)
 
 	if err != nil || !container.State.Running {
 		if _, ok := err.(*docker.NoSuchContainer); ok {
-			log.Debug("Container not found, refreshing container info: ", oldInfo.Id)
+			log.Debug("Container not found, refreshing container info: ", oldInfo.ID)
 		} else {
-			log.Warn("Error inspecting container, refreshing container info: ", oldInfo.Id, ": ", err)
+			log.Warn("Error inspecting container, refreshing container info: ", oldInfo.ID, ": ", err)
 		}
 
-		self.syncContainers(now)
-		info, found := self.containerIPMap[containerIp]
+		d.syncContainers(now)
+		info, found := d.containerIPMap[containerIP]
 		return info, found
-	} else {
-		oldInfo.RefreshTime = refreshTime(now)
-		self.containerIPMap[containerIp] = oldInfo
-		return oldInfo, true
 	}
+
+	oldInfo.RefreshTime = refreshTime(now)
+	d.containerIPMap[containerIP] = oldInfo
+	return oldInfo, true
 }
 
-func (self *DockerContainerService) syncContainers(now time.Time) {
+func (d *dockerContainerService) syncContainers(now time.Time) {
 	log.Info("Synchronizing state with running docker containers")
-	apiContainers, err := self.docker.ListContainers(docker.ListContainersOptions{
+	apiContainers, err := d.docker.ListContainers(docker.ListContainersOptions{
 		All:    false, // only running containers
 		Size:   false, // do not need size information
 		Limit:  0,     // all running containers
@@ -91,10 +91,10 @@ func (self *DockerContainerService) syncContainers(now time.Time) {
 	}
 
 	refreshAt := refreshTime(now)
-	containerIPMap := make(map[string]DockerContainerInfo)
+	containerIPMap := make(map[string]dockerContainerInfo)
 
 	for _, apiContainer := range apiContainers {
-		container, err := self.docker.InspectContainer(apiContainer.ID)
+		container, err := d.docker.InspectContainer(apiContainer.ID)
 
 		if err != nil {
 			if _, ok := err.(*docker.NoSuchContainer); ok {
@@ -116,9 +116,9 @@ func (self *DockerContainerService) syncContainers(now time.Time) {
 
 		log.Infof("Container: id=%s image=%s role=%s", container.ID[:6], container.Config.Image, roleArn)
 
-		containerIPMap[containerIP] = DockerContainerInfo{
-			ContainerInfo: ContainerInfo{
-				Id:        container.ID,
+		containerIPMap[containerIP] = dockerContainerInfo{
+			containerInfo: containerInfo{
+				ID:        container.ID,
 				Name:      container.Name,
 				IamRole:   roleArn,
 				IamPolicy: iamPolicy,
@@ -127,14 +127,14 @@ func (self *DockerContainerService) syncContainers(now time.Time) {
 		}
 	}
 
-	self.containerIPMap = containerIPMap
+	d.containerIPMap = containerIPMap
 }
 
 func refreshTime(now time.Time) time.Time {
 	return now.Add(1 * time.Second)
 }
 
-func getRoleArnFromEnv(env []string) (role RoleArn, policy string, err error) {
+func getRoleArnFromEnv(env []string) (role roleArn, policy string, err error) {
 	for _, e := range env {
 		v := strings.SplitN(e, "=", 2)
 
@@ -142,7 +142,7 @@ func getRoleArnFromEnv(env []string) (role RoleArn, policy string, err error) {
 			roleArn := strings.TrimSpace(v[1])
 
 			if len(roleArn) > 0 {
-				role, err = NewRoleArn(roleArn)
+				role, err = newRoleArn(roleArn)
 
 				if err != nil {
 					return

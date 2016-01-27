@@ -11,71 +11,71 @@ import (
 	"github.com/flynn/flynn/pkg/cluster"
 )
 
-type FlynnContainerInfo struct {
-	ContainerInfo
+type flynnContainerInfo struct {
+	containerInfo
 	RefreshTime time.Time
 }
 
-type FlynnContainerService struct {
-	containerIPMap map[string]FlynnContainerInfo
+type flynnContainerService struct {
+	containerIPMap map[string]flynnContainerInfo
 	flynn          *cluster.Host
 }
 
-func NewFlynnContainerService(endpoint string) (*FlynnContainerService, error) {
+func newFlynnContainerService(endpoint string) (*flynnContainerService, error) {
 	flynn := cluster.NewHost("local", endpoint, nil, nil)
 
-	return &FlynnContainerService{
-		containerIPMap: make(map[string]FlynnContainerInfo),
+	return &flynnContainerService{
+		containerIPMap: make(map[string]flynnContainerInfo),
 		flynn:          flynn,
 	}, nil
 }
 
-func (self *FlynnContainerService) TypeName() string {
+func (f *flynnContainerService) TypeName() string {
 	return "flynn"
 }
 
-func (self *FlynnContainerService) ContainerForIP(containerIP string) (ContainerInfo, error) {
-	info, found := self.containerIPMap[containerIP]
+func (f *flynnContainerService) ContainerForIP(containerIP string) (containerInfo, error) {
+	info, found := f.containerIPMap[containerIP]
 	now := time.Now()
 
 	if !found {
-		self.syncContainers(now)
-		info, found = self.containerIPMap[containerIP]
+		f.syncContainers(now)
+		info, found = f.containerIPMap[containerIP]
 	} else if now.After(info.RefreshTime) {
-		info, found = self.syncContainer(containerIP, info, now)
+		info, found = f.syncContainer(containerIP, info, now)
 	}
 
 	if !found {
-		return ContainerInfo{}, fmt.Errorf("No container found for IP %s", containerIP)
+		return containerInfo{}, fmt.Errorf("No container found for IP %s", containerIP)
 	}
 
-	return info.ContainerInfo, nil
+	return info.containerInfo, nil
 }
 
-func (self *FlynnContainerService) syncContainer(containerIp string, oldInfo FlynnContainerInfo, now time.Time) (FlynnContainerInfo, bool) {
-	log.Debug("Inspecting job: ", oldInfo.Id)
-	_, err := self.flynn.GetJob(oldInfo.Id)
+func (f *flynnContainerService) syncContainer(containerIP string, oldInfo flynnContainerInfo, now time.Time) (flynnContainerInfo, bool) {
+	log.Debug("Inspecting job: ", oldInfo.ID)
+	_, err := f.flynn.GetJob(oldInfo.ID)
 
 	if err != nil {
 		if err == cluster.ErrNotFound {
-			log.Debug("Container not found, refreshing container info: ", oldInfo.Id)
+			log.Debug("Container not found, refreshing container info: ", oldInfo.ID)
 		} else {
-			log.Warn("Error inspecting container, refreshing container info: ", oldInfo.Id, ": ", err)
+			log.Warn("Error inspecting container, refreshing container info: ", oldInfo.ID, ": ", err)
 		}
 
-		self.syncContainers(now)
-		info, found := self.containerIPMap[containerIp]
+		f.syncContainers(now)
+		info, found := f.containerIPMap[containerIP]
 		return info, found
-	} else {
-		oldInfo.RefreshTime = refreshTime(now)
-		self.containerIPMap[containerIp] = oldInfo
-		return oldInfo, true
 	}
+
+	oldInfo.RefreshTime = refreshTime(now)
+	f.containerIPMap[containerIP] = oldInfo
+	return oldInfo, true
 }
 
-func (self *FlynnContainerService) syncContainers(now time.Time) {
+func (f *flynnContainerService) syncContainers(now time.Time) {
 	log.Info("Synchronizing state with running flynn containers")
-	jobs, err := self.flynn.ListJobs()
+	jobs, err := f.flynn.ListJobs()
 
 	if err != nil {
 		log.Error("Error listing running containers: ", err)
@@ -83,7 +83,7 @@ func (self *FlynnContainerService) syncContainers(now time.Time) {
 	}
 
 	refreshAt := refreshTime(now)
-	containerIPMap := make(map[string]FlynnContainerInfo)
+	containerIPMap := make(map[string]flynnContainerInfo)
 
 	for _, job := range jobs {
 		roleArn, err := getRoleArnFromJob(job.Job)
@@ -95,9 +95,9 @@ func (self *FlynnContainerService) syncContainers(now time.Time) {
 
 		log.Infof("Job: id=%s role=%s", job.Job.ID, roleArn)
 
-		containerIPMap[job.InternalIP] = FlynnContainerInfo{
-			ContainerInfo: ContainerInfo{
-				Id:        job.Job.ID,
+		containerIPMap[job.InternalIP] = flynnContainerInfo{
+			containerInfo: containerInfo{
+				ID:        job.Job.ID,
 				Name:      job.Job.ID,
 				IamRole:   roleArn,
 				IamPolicy: strings.TrimSpace(job.Job.Metadata["IAM_POLICY"]),
@@ -106,15 +106,15 @@ func (self *FlynnContainerService) syncContainers(now time.Time) {
 		}
 	}
 
-	self.containerIPMap = containerIPMap
+	f.containerIPMap = containerIPMap
 }
 
-func getRoleArnFromJob(job *host.Job) (RoleArn, error) {
-	roleArn := job.Metadata["IAM_ROLE"]
+func getRoleArnFromJob(job *host.Job) (roleArn, error) {
+	roleArnStr := job.Metadata["IAM_ROLE"]
 
-	if len(roleArn) > 0 {
-		return NewRoleArn(roleArn)
+	if len(roleArnStr) > 0 {
+		return newRoleArn(roleArnStr)
 	}
 
-	return RoleArn{}, nil
+	return roleArn{}, nil
 }

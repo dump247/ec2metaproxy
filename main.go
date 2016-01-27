@@ -15,13 +15,13 @@ import (
 )
 
 var (
-	credsRegex *regexp.Regexp = regexp.MustCompile("^/(.+?)/meta-data/iam/security-credentials/(.*)$")
+	credsRegex = regexp.MustCompile("^/(.+?)/meta-data/iam/security-credentials/(.*)$")
 
-	instanceServiceClient *http.Transport = &http.Transport{}
+	instanceServiceClient = &http.Transport{}
 )
 
 var (
-	defaultIamRole = RoleArnOpt(kingpin.
+	defaultIamRole = roleArnOpt(kingpin.
 			Flag("default-iam-role", "ARN of the role to use if the container does not specify a role.").
 			Short('r'))
 
@@ -30,7 +30,7 @@ var (
 				Default("").
 				String()
 
-	metadataUrl = kingpin.
+	metadataURL = kingpin.
 			Flag("metadata-url", "URL of the real EC2 metadata service.").
 			Default("http://169.254.169.254").
 			String()
@@ -60,18 +60,18 @@ var (
 			String()
 )
 
-type MetadataCredentials struct {
+type metadataCredentials struct {
 	Code            string
 	LastUpdated     time.Time
 	Type            string
-	AccessKeyId     string
+	AccessKeyID     string
 	SecretAccessKey string
 	Token           string
 	Expiration      time.Time
 }
 
 func copyHeaders(dst, src http.Header) {
-	for k, _ := range dst {
+	for k := range dst {
 		dst.Del(k)
 	}
 
@@ -112,25 +112,25 @@ func remoteIP(addr string) string {
 
 	if index < 0 {
 		return addr
-	} else {
-		return addr[:index]
 	}
+
+	return addr[:index]
 }
 
-type LogResponseWriter struct {
+type logResponseWriter struct {
 	Wrapped http.ResponseWriter
 	Status  int
 }
 
-func (t *LogResponseWriter) Header() http.Header {
+func (t *logResponseWriter) Header() http.Header {
 	return t.Wrapped.Header()
 }
 
-func (t *LogResponseWriter) Write(d []byte) (int, error) {
+func (t *logResponseWriter) Write(d []byte) (int, error) {
 	return t.Wrapped.Write(d)
 }
 
-func (t *LogResponseWriter) WriteHeader(s int) {
+func (t *logResponseWriter) WriteHeader(s int) {
 	t.Wrapped.WriteHeader(s)
 	t.Status = s
 }
@@ -138,7 +138,7 @@ func (t *LogResponseWriter) WriteHeader(s int) {
 func logHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		logWriter := &LogResponseWriter{w, 200}
+		logWriter := &logResponseWriter{w, 200}
 
 		defer func() {
 			if e := recover(); e != nil {
@@ -154,7 +154,7 @@ func logHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w htt
 	}
 }
 
-func NewGET(path string) *http.Request {
+func newGET(path string) *http.Request {
 	r, err := http.NewRequest("GET", path, nil)
 
 	if err != nil {
@@ -164,8 +164,8 @@ func NewGET(path string) *http.Request {
 	return r
 }
 
-func handleCredentials(baseUrl, apiVersion, subpath string, c *CredentialsProvider, w http.ResponseWriter, r *http.Request) {
-	resp, err := instanceServiceClient.RoundTrip(NewGET(baseUrl + "/" + apiVersion + "/meta-data/iam/security-credentials/"))
+func handleCredentials(baseURL, apiVersion, subpath string, c *credentialsProvider, w http.ResponseWriter, r *http.Request) {
+	resp, err := instanceServiceClient.RoundTrip(newGET(baseURL + "/" + apiVersion + "/meta-data/iam/security-credentials/"))
 
 	if err != nil {
 		log.Error("Error requesting creds path for API version ", apiVersion, ": ", err)
@@ -199,11 +199,11 @@ func handleCredentials(baseUrl, apiVersion, subpath string, c *CredentialsProvid
 		// it can be followed by a slash and anything after the slash is ignored.
 		w.WriteHeader(http.StatusNotFound)
 	} else {
-		creds, err := json.Marshal(&MetadataCredentials{
+		creds, err := json.Marshal(&metadataCredentials{
 			Code:            "Success",
 			LastUpdated:     credentials.GeneratedAt,
 			Type:            "AWS-HMAC",
-			AccessKeyId:     credentials.AccessKey,
+			AccessKeyID:     credentials.AccessKey,
 			SecretAccessKey: credentials.SecretKey,
 			Token:           credentials.Token,
 			Expiration:      credentials.Expiration,
@@ -218,12 +218,12 @@ func handleCredentials(baseUrl, apiVersion, subpath string, c *CredentialsProvid
 	}
 }
 
-func NewContainerService(platform string) (ContainerService, error) {
+func newContainerService(platform string) (containerService, error) {
 	switch platform {
 	case "docker":
-		return NewDockerContainerService(*dockerEndpoint)
+		return newDockerContainerService(*dockerEndpoint)
 	case "flynn":
-		return NewFlynnContainerService(*flynnEndpoint)
+		return newFlynnContainerService(*flynnEndpoint)
 	default:
 		return nil, fmt.Errorf("Unknown container platform: %s", platform)
 	}
@@ -236,24 +236,24 @@ func main() {
 	defer log.Flush()
 	configureLogging(*verbose)
 
-	platform, err := NewContainerService(command)
+	platform, err := newContainerService(command)
 
 	if err != nil {
 		panic(err)
 	}
 
 	awsSession := session.New()
-	credentials := NewCredentialsProvider(awsSession, platform, *defaultIamRole, *defaultIamPolicy)
+	credentials := newCredentialsProvider(awsSession, platform, *defaultIamRole, *defaultIamPolicy)
 
 	// Proxy non-credentials requests to primary metadata service
 	http.HandleFunc("/", logHandler(func(w http.ResponseWriter, r *http.Request) {
 		match := credsRegex.FindStringSubmatch(r.URL.Path)
 		if match != nil {
-			handleCredentials(*metadataUrl, match[1], match[2], credentials, w, r)
+			handleCredentials(*metadataURL, match[1], match[2], credentials, w, r)
 			return
 		}
 
-		proxyReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", *metadataUrl, r.URL.Path), r.Body)
+		proxyReq, err := http.NewRequest(r.Method, fmt.Sprintf("%s%s", *metadataURL, r.URL.Path), r.Body)
 
 		if err != nil {
 			log.Error("Error creating proxy http request: ", err)
