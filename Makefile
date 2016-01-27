@@ -1,9 +1,12 @@
-export GOPATH=$(CURDIR)
+PROJECT_ROOT:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+PROJECT_PACKAGE=github.com/dump247/ec2metaproxy
 
 DOCKER_IMAGE=dump247/ec2metaproxy
 
-SRC_DIRS=github.com/dump247/docker-ec2-metadata
-CMD_DIRS=github.com/dump247/docker-ec2-metadata
+GO15VENDOREXPERIMENT=1
+
+SRC_DIRS=${PROJECT_PACKAGE}
+CMD_DIRS=${PROJECT_PACKAGE}
 
 .PHONY: clean build test compile fmt docker-image
 
@@ -20,13 +23,11 @@ fmt:
 
 clean:
 	go clean -i ${SRC_DIRS}
-	rm -rf ${GOPATH}/bin
-	rm -rf ${GOPATH}/pkg
 
 docker-image: clean
-	docker run --rm -v ${GOPATH}:/project -w=/project golang:1.5 make
-	@cp Dockerfile bin/
-	docker build -t ${DOCKER_IMAGE} bin/
+	docker run --rm -e GO15VENDOREXPERIMENT=1 -e GOPATH=/project -v ${GOPATH}:/project -w=/project/src/${PROJECT_PACKAGE} golang:1.5 make
+	@cp ${PROJECT_ROOT}/Dockerfile ${GOPATH}/bin/
+	docker build -t ${DOCKER_IMAGE} ${GOPATH}/bin/
 
 push-docker-image: docker-image
 	docker push ${DOCKER_IMAGE}
