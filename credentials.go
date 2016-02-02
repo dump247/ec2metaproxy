@@ -132,6 +132,7 @@ func (c *credentialsProvider) AssumeRole(roleArn roleArn, iamPolicy, sessionName
 		Token:       *resp.Credentials.SessionToken,
 		Expiration:  *resp.Credentials.Expiration,
 		GeneratedAt: time.Now(),
+		RoleArn:     roleArn,
 	}, nil
 }
 
