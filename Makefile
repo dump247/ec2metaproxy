@@ -28,7 +28,8 @@ clean:
 	go clean -i ${SRC_DIRS}
 
 docker-image: clean
-	docker run --rm -e GO15VENDOREXPERIMENT=1 -e GOPATH=/project -v ${GOPATH}:/project -w=/project/src/${PROJECT_PACKAGE} golang:1.5 make
+	docker pull dump247/ec2metaproxy-build
+	docker run --rm -v ${GOPATH}:/go -w=/go/src/${PROJECT_PACKAGE} dump247/ec2metaproxy-build make
 	@cp ${PROJECT_ROOT}/Dockerfile ${GOPATH}/bin/
 	docker build -t ${DOCKER_IMAGE} ${GOPATH}/bin/
 

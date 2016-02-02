@@ -1,0 +1,20 @@
+FROM golang:1.5-alpine
+
+MAINTAINER Cory Thomas <cthomas7577@gmail.com>
+
+ENV GOTOOLS=/gotools                        \
+    GO15VENDOREXPERIMENT=1
+
+ENV PATH $GOTOOLS/bin:$PATH
+
+RUN apk add --no-cache git make                                 \
+    &&                                                          \
+    GOPATH=$GOTOOLS go get -u github.com/golang/lint/golint     \
+    &&                                                          \
+    GOPATH=$GOTOOLS go install github.com/golang/lint/golint    \
+    &&                                                          \
+    GOPATH=$GOTOOLS go get -u github.com/tools/godep            \
+    &&                                                          \
+    GOPATH=$GOTOOLS go install github.com/tools/godep           \
+    &&                                                          \
+    rm -rf $GOTOOLS/pkg $GOTOOLS/src
