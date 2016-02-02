@@ -6,7 +6,7 @@ import (
 	"time"
 
 	log "github.com/cihub/seelog"
-	"github.com/dump247/ec2metaproxy/vendor/github.com/fsouza/go-dockerclient"
+	"github.com/fsouza/go-dockerclient"
 )
 
 type dockerContainerInfo struct {
