@@ -64,7 +64,7 @@ type metadataCredentials struct {
 	Code            string
 	LastUpdated     time.Time
 	Type            string
-	AccessKeyID     string
+	AccessKeyID     string `json:"AccessKeyId"`
 	SecretAccessKey string
 	Token           string
 	Expiration      time.Time
