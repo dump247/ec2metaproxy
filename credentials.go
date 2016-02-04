@@ -18,6 +18,8 @@ const (
 var (
 	// matches char that is not valid in a STS role session name
 	invalidSessionNameRegexp = regexp.MustCompile(`[^\w+=,.@-]`)
+
+	sessionExpiration = 5 * time.Minute
 )
 
 type credentials struct {
@@ -38,7 +40,7 @@ func (c credentials) ExpiredAt(at time.Time) bool {
 }
 
 func (c credentials) ExpiresIn(d time.Duration) bool {
-	return c.ExpiredAt(time.Now().Add(-d))
+	return c.ExpiredAt(time.Now().Add(d))
 }
 
 type containerCredentials struct {
@@ -49,7 +51,7 @@ type containerCredentials struct {
 func (c containerCredentials) IsValid(container containerInfo) bool {
 	return c.containerInfo.IamRole.Equals(container.IamRole) &&
 		c.containerInfo.ID == container.ID &&
-		!c.credentials.ExpiresIn(5*time.Minute)
+		!c.credentials.ExpiresIn(sessionExpiration)
 }
 
 type credentialsProvider struct {
