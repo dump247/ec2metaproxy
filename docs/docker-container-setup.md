@@ -2,6 +2,11 @@ By default, a container receives the default permissions configured by the metad
 proxy. However, some containers require more or less permissions. For these cases, the
 container can provide a custom IAM role, a custom IAM policy, or both.
 
+The role and/or policy are configured in container environment variables. The metadata
+proxy daemon uses the docker API to get the configured role and policy for a container.
+The environment variable can only be set when the container is created and can not be
+modified while the container is running.
+
 # Container Role
 
 A container can specify a specific role to use by setting the `IAM_ROLE` environment
