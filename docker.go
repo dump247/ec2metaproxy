@@ -106,7 +106,13 @@ func (d *dockerContainerService) syncContainers(now time.Time) {
 			continue
 		}
 
-		containerIP := container.NetworkSettings.IPAddress
+		var containerIP []string
+		if container.NetworkSettings.IPAddress != "" {
+			containerIP = append(containerIP, container.NetworkSettings.IPAddress)
+		}
+		for network := range container.NetworkSettings.Networks {
+			containerIP = append(containerIP, container.NetworkSettings.Networks[network].IPAddress)
+		}
 		roleArn, iamPolicy, err := getRoleArnFromEnv(container.Config.Env)
 
 		if err != nil {
@@ -114,16 +120,18 @@ func (d *dockerContainerService) syncContainers(now time.Time) {
 			continue
 		}
 
-		log.Infof("Container: id=%s image=%s role=%s", container.ID[:6], container.Config.Image, roleArn)
+		for _,IPAddress := range containerIP {
+			log.Infof("Container: id=%s ip=%s image=%s role=%s", container.ID[:6], IPAddress, container.Config.Image, roleArn)
 
-		containerIPMap[containerIP] = dockerContainerInfo{
-			containerInfo: containerInfo{
-				ID:        container.ID,
-				Name:      container.Name,
-				IamRole:   roleArn,
-				IamPolicy: iamPolicy,
-			},
-			RefreshTime: refreshAt,
+			containerIPMap[IPAddress] = dockerContainerInfo{
+				containerInfo: containerInfo{
+					ID:        container.ID,
+					Name:      container.Name,
+					IamRole:   roleArn,
+					IamPolicy: iamPolicy,
+				},
+				RefreshTime: refreshAt,
+			}
 		}
 	}
 
