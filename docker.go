@@ -113,6 +113,12 @@ func (d *dockerContainerService) syncContainers(now time.Time) {
 		for _, network := range container.NetworkSettings.Networks {
 			containerIPs = append(containerIPs, network.IPAddress)
 		}
+
+		if len(containerIPs) == 0 {
+			log.Error("No IP addresses discovered for container: ", apiContainer.ID)
+			continue
+		}
+
 		roleArn, iamPolicy, err := getRoleArnFromEnv(container.Config.Env)
 
 		if err != nil {
