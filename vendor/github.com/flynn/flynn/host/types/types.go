@@ -15,8 +15,10 @@ type Job struct {
 
 	Metadata map[string]string `json:"metadata,omitempty"`
 
-	Artifact  Artifact           `json:"artifact,omitempty"`
-	Resources resource.Resources `json:"resources,omitempty"`
+	ImageArtifact *Artifact          `json:"artifact,omitempty"`
+	FileArtifacts []*Artifact        `json:"file_artifacts,omitempty"`
+	Resources     resource.Resources `json:"resources,omitempty"`
+	Partition     string             `json:"partition,omitempty"`
 
 	Config ContainerConfig `json:"config,omitempty"`
 
@@ -161,7 +163,7 @@ type HealthCheck struct {
 	Path   string `json:"path,omitempty"`
 	Host   string `json:"host,omitempty"`
 	Match  string `json:"match,omitempty"`
-	Status int    `json:"status.omitempty"`
+	Status int    `json:"status,omitempty"`
 }
 
 type Mount struct {
@@ -179,9 +181,16 @@ type VolumeBinding struct {
 }
 
 type Artifact struct {
-	URI  string `json:"url,omitempty"`
-	Type string `json:"type,omitempty"`
+	URI  string       `json:"url,omitempty"`
+	Type ArtifactType `json:"type,omitempty"`
 }
+
+type ArtifactType string
+
+const (
+	ArtifactTypeDocker ArtifactType = "docker"
+	ArtifactTypeFile   ArtifactType = "file"
+)
 
 type Host struct {
 	ID string `json:"id,omitempty"`
@@ -196,11 +205,6 @@ type Event struct {
 	Job   *ActiveJob `json:"job,omitempty"`
 }
 
-type HostEvent struct {
-	Event  string `json:"event,omitempty"`
-	HostID string `json:"host_id,omitempty"`
-}
-
 type ActiveJob struct {
 	Job         *Job      `json:"job,omitempty"`
 	HostID      string    `json:"host_id,omitempty"`
@@ -208,13 +212,29 @@ type ActiveJob struct {
 	InternalIP  string    `json:"internal_ip,omitempty"`
 	ForceStop   bool      `json:"force_stop,omitempty"`
 	Status      JobStatus `json:"status,omitempty"`
+	CreatedAt   time.Time `json:"created_at,omitempty"`
 	StartedAt   time.Time `json:"started_at,omitempty"`
 	EndedAt     time.Time `json:"ended_at,omitempty"`
 	ExitStatus  *int      `json:"exit_status,omitempty"`
 	Error       *string   `json:"error,omitempty"`
 }
 
-var ErrJobNotRunning = errors.New("host: job not running")
+func (j *ActiveJob) Dup() *ActiveJob {
+	job := *j
+	job.Job = j.Job.Dup()
+	if j.ExitStatus != nil {
+		*job.ExitStatus = *j.ExitStatus
+	}
+	if j.Error != nil {
+		*job.Error = *j.Error
+	}
+	return &job
+}
+
+var (
+	ErrJobNotRunning = errors.New("host: job not running")
+	ErrAttached      = errors.New("host: job is attached")
+)
 
 type AttachReq struct {
 	JobID  string     `json:"job_id,omitempty"`
@@ -265,6 +285,7 @@ const (
 )
 
 type NetworkConfig struct {
+	JobID     string   `json:"job_id"`
 	Subnet    string   `json:"subnet"`
 	MTU       int      `json:"mtu"`
 	Resolvers []string `json:"resolvers"`
@@ -294,7 +315,7 @@ const (
 )
 
 type ResourceCheck struct {
-	Ports []Port `json"ports,omitempty"`
+	Ports []Port `json:"ports,omitempty"`
 }
 
 type Command struct {
