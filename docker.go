@@ -149,6 +149,9 @@ func refreshTime(now time.Time) time.Time {
 }
 
 func getRoleArnFromEnv(env []string) (role roleArn, policy string, err error) {
+	var roleName string
+	var accountID string
+
 	for _, e := range env {
 		v := strings.SplitN(e, "=", 2)
 
@@ -164,6 +167,18 @@ func getRoleArnFromEnv(env []string) (role roleArn, policy string, err error) {
 			}
 		} else if v[0] == "IAM_POLICY" && len(v) > 1 {
 			policy = strings.TrimSpace(v[1])
+		} else if v[0] == "IAM_ROLE_NAME" && len(v) > 1 {
+			roleName = strings.TrimSpace(v[1])
+		} else if v[0] == "AWS_ACCOUNT_ID" && len(v) > 1 {
+			accountID = strings.TrimSpace(v[1])
+		}
+	}
+
+	if len(roleName) > 0 && len(accountID) > 0 {
+		role, err = newRoleArn(fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, roleName))
+
+		if err != nil {
+			return
 		}
 	}
 
