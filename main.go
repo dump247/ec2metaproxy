@@ -19,6 +19,8 @@ var (
 	credsRegex = regexp.MustCompile("^/(.+?)/meta-data/iam/security-credentials/(.*)$")
 
 	instanceServiceClient = &http.Transport{}
+	
+	client = &http.Client{}
 )
 
 var (
