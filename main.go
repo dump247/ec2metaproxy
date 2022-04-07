@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -18,6 +19,8 @@ var (
 	credsRegex = regexp.MustCompile("^/(.+?)/meta-data/iam/security-credentials/(.*)$")
 
 	instanceServiceClient = &http.Transport{}
+
+	client = &http.Client{}
 )
 
 var (
@@ -154,9 +157,33 @@ func logHandler(handler func(w http.ResponseWriter, r *http.Request)) func(w htt
 	}
 }
 
-func newGET(path string) *http.Request {
-	r, err := http.NewRequest("GET", path, nil)
+func fetchMetadataToken() (string, error) {
+	var token = ""
+	req, err := http.NewRequest(http.MethodPut, "http://169.254.169.254/latest/api/token", nil)
+	if err != nil {
+		log.Error("Error making request for fetching metadata token: ", err)
+		return "", err
+	}
+	req.Header.Set("X-aws-ec2-metadata-token-ttl-seconds", "300")
+	resp, err := client.Do(req)
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Error("Error reading response body from fetching metadata token: ", err)
+		}
+		token = string(bodyBytes)
+	}
+	defer resp.Body.Close()
+	return token, err
+}
 
+func newGET(path string) *http.Request {
+	token, err := fetchMetadataToken()
+	if err != nil {
+		panic(err)
+	}
+	r, err := http.NewRequest("GET", path, nil)
+	r.Header.Set("X-aws-ec2-metadata-token", token)
 	if err != nil {
 		panic(err)
 	}
